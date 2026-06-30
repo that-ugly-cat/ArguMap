@@ -1,0 +1,655 @@
+{
+  "_meta": {
+    "title": "AutoMap v2 — Argumentation schemes, fallacies, and biases",
+    "primary_sources": [
+      "Walton, Reed & Macagno (2008). Argumentation Schemes. Cambridge University Press. Ch. 9: A User's Compendium of Schemes.",
+      "Arp, Barbone & Bruce (eds., 2018). Bad Arguments: 100 of the Most Important Fallacies in Western Philosophy. Wiley-Blackwell."
+    ],
+    "note": "When loading for LLM prompts, use only 'name' and 'description'. Fields 'source', 'example', and family 'label' are for human reference and tooling."
+  },
+
+  "inferential_rules": {
+
+    "classical_logic": {
+      "label": "Classical Logic",
+      "rules": [
+        {
+          "name": "modus ponens",
+          "description": "If P then Q; P is true; therefore Q is true.",
+          "source": "Standard propositional logic",
+          "example": "If AI systems reduce diagnostic errors, and this system reduces diagnostic errors, then it should be deployed."
+        },
+        {
+          "name": "modus tollens",
+          "description": "If P then Q; Q is false; therefore P is false.",
+          "source": "Standard propositional logic",
+          "example": "If the intervention were safe, adverse events would not occur; adverse events occurred; therefore the intervention is not safe."
+        },
+        {
+          "name": "specification",
+          "description": "A general principle is instantiated to derive a more specific normative or empirical claim.",
+          "source": "Standard logic",
+          "example": "The general principle of beneficence specifies, in clinical contexts, the duty to use the best available diagnostic tools."
+        },
+        {
+          "name": "constraint",
+          "description": "A norm or condition qualifies (limits the scope of) a conclusion without defeating it.",
+          "source": "Standard logic",
+          "example": "AI deployment is justified, subject to the constraint that accountability remains with a licensed physician."
+        },
+        {
+          "name": "condition",
+          "description": "A prerequisite or enabling condition is required for a conclusion to hold.",
+          "source": "Standard logic",
+          "example": "Informed consent is a necessary condition for any experimental genomic intervention."
+        },
+        {
+          "name": "reductio ad absurdum",
+          "description": "To establish P, assume its negation ¬P; show that ¬P leads to a contradiction or demonstrably unacceptable conclusion; therefore P must hold. A valid form of indirect proof in classical logic. In informal argumentation, the 'absurdity' need not be a formal contradiction — a conclusion that is evidently false, morally unacceptable, or inconsistent with well-established commitments is sufficient.",
+          "source": "Standard propositional logic; Aristotle, Prior Analytics (historical origin); [Internet Encyclopedia of Philosophy, Reductio ad Absurdum](https://iep.utm.edu/reductio/)",
+          "example": "To argue that full opacity in AI decision-making is permissible, one assumes a physician may cite only 'AI said so' as justification for a treatment decision; this entails a system in which accountability is vacuous and informed consent cannot be secured — an evidently unacceptable conclusion; therefore full opacity is impermissible."
+        }
+      ]
+    },
+
+    "epistemic_schemes": {
+      "label": "Epistemic Schemes",
+      "rules": [
+        {
+          "name": "argument from expert opinion",
+          "description": "An expert in domain S asserts A; therefore A is presumptively true. Defeasible if expertise, trustworthiness, or field relevance is contested.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 2](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "According to oncologists specializing in AI diagnostics, the system's sensitivity exceeds that of junior radiologists; therefore the claim is presumptively credible."
+        },
+        {
+          "name": "argument from witness testimony",
+          "description": "A witness in a position to know asserts A; therefore A is plausibly true. Defeasible by bias, inconsistency, or limited access.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 3](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "Patients who underwent AI-assisted triage reported shorter wait times; this testimony supports the efficiency claim."
+        },
+        {
+          "name": "abductive inference",
+          "description": "Hypothesis H best explains the observed data D among competing accounts; therefore H is the most plausible explanation (inference to best explanation).",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 31](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "The demographic performance gap is best explained by systematic dataset bias; therefore dataset bias is the most plausible hypothesis."
+        },
+        {
+          "name": "argument from evidence to hypothesis",
+          "description": "If hypothesis H were true, observation B would follow; B is observed; therefore H is provisionally confirmed.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 32](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "If algorithmic opacity undermines accountability, clinicians would be unable to justify AI-assisted decisions; this is observed; therefore the hypothesis is supported."
+        },
+        {
+          "name": "argument from sign",
+          "description": "A is a sign that generally correlates with B; A is present; therefore B is presumptively present.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 30](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "A high false-negative rate on minority cohorts is a sign of demographic bias in the training data."
+        },
+        {
+          "name": "argument from ignorance",
+          "description": "A has not been established as true; therefore A is presumptively false. Valid only under closed-world or exhaustive-search conditions.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, schemes 26–27](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "No long-term adverse effects of germline editing have been documented in this cohort; provisionally, none have occurred."
+        },
+        {
+          "name": "argument from memory",
+          "description": "Agent P recalls φ; recalling φ is prima facie reason to believe φ; therefore it is reasonable to believe φ.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 60](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "The clinician recalls the protocol specifying consent requirements; this recollection provides prima facie grounds for the normative claim."
+        }
+      ]
+    },
+
+    "causal_empirical": {
+      "label": "Causal and Empirical Schemes",
+      "rules": [
+        {
+          "name": "argument from cause to effect",
+          "description": "Generally, if A occurs then B occurs; A occurs; therefore B will plausibly occur. Defeasible by intervening factors.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 28](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "AI triage tools generally reduce time-to-diagnosis; this system is deployed; therefore time-to-diagnosis will plausibly be reduced."
+        },
+        {
+          "name": "argument from consequences (positive)",
+          "description": "If A is brought about, good consequences will plausibly follow; and we are obligated to promote good consequences; therefore A should be brought about. The normative co-premise is often implicit and should be made explicit when it is contested or when competing values qualify the obligation.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 33.1](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "Deploying AI triage will reduce diagnostic delays and improve patient outcomes; therefore it should be deployed."
+        },
+        {
+          "name": "argument from consequences (negative)",
+          "description": "If A is brought about, bad consequences will follow; and we are obligated to avoid bad consequences; therefore A should not be brought about. The normative co-premise is often implicit and should be made explicit when it is contested or when competing values qualify the obligation.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 33.2](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "Deploying AI triage without debiasing will worsen health inequities; therefore deployment should be withheld pending debiasing."
+        }
+      ]
+    },
+
+    "analogical_exemplar": {
+      "label": "Analogical and Exemplar Schemes",
+      "rules": [
+        {
+          "name": "argument from analogy",
+          "description": "Case C1 is similar to C2; A is true in C1; therefore A is presumptively true in C2. Defeasible by relevant dissimilarities.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 7](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "Computer-assisted radiology was initially contested but improved patient outcomes; AI-assisted oncology triage is analogous; therefore it will likely improve outcomes."
+        },
+        {
+          "name": "argument from example / generalization",
+          "description": "Individual a has property F and G; therefore, generally, if x has F then x has G. Defeasible by atypicality or insufficient sample.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 6](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "Three independent cohort studies show AI sensitivity exceeding junior radiologists; this generalizes to clinical deployment contexts."
+        },
+        {
+          "name": "practical reasoning from analogy",
+          "description": "The right (or wrong) thing to do in situation S1 was action x; S2 is sufficiently similar to S1; therefore x is the right (or wrong) thing to do in S2.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 8](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "Mandatory disclosure of algorithmic involvement was the right policy in credit scoring; clinical AI is sufficiently analogous; therefore disclosure should be mandatory here too."
+        }
+      ]
+    },
+
+    "normative_practical": {
+      "label": "Normative and Practical Schemes",
+      "rules": [
+        {
+          "name": "practical reasoning",
+          "description": "Agent has goal G; action A is a necessary or sufficient means to realize G; therefore the agent ought to carry out A.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 22](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "The goal is to minimize diagnostic errors; deploying validated AI tools is a means to this goal; therefore clinicians ought to deploy them."
+        },
+        {
+          "name": "argument from values",
+          "description": "Value V is positive/negative as judged by relevant agents; V supports/opposes goal G; therefore there is reason to retain/retract commitment to G.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 19](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "Equity is a positive value; AI systems that widen demographic gaps undermine equity; therefore there is reason to retract commitment to unconditioned deployment."
+        },
+        {
+          "name": "argument from rules",
+          "description": "Established rule R requires action A in circumstances C; C obtains; therefore A must be carried out unless the case is a recognized exception.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 55](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "Helsinki Declaration Art. 26 requires disclosure of algorithmic involvement in diagnosis; this is such a case; therefore disclosure is required."
+        },
+        {
+          "name": "argument from precedent",
+          "description": "Rule R generally applies; this legitimate case deviates from R; therefore R must be recognized as requiring an exception or modification.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 57](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "General consent rules do not anticipate algorithmic contributors; this case deviates; therefore the rules must be modified to accommodate algorithmic disclosure."
+        },
+        {
+          "name": "argument for exceptional case",
+          "description": "Case a is a recognized exception to established rule R; therefore R can be waived in the case of a.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 56](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "Emergency triage situations are recognized exceptions to standard consent timelines; therefore expedited consent protocols apply."
+        },
+        {
+          "name": "argument from verbal classification",
+          "description": "Entity a has property F; if x has F then x can be classified as G; therefore a has property G.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 14](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "This intervention alters germline DNA; germline alterations are classified as heritable modifications; therefore this intervention is a heritable modification."
+        },
+        {
+          "name": "argument from definition",
+          "description": "a fits definition D; if a fits D then a can be classified as G; therefore a has property G.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 15](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "This procedure fits the WHO definition of a medical device; devices require regulatory approval; therefore this procedure requires approval."
+        },
+        {
+          "name": "argument from commitment",
+          "description": "Agent a is committed to A; commitment to A implies commitment to B; therefore a is also committed to B.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 40](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "The hospital is committed to evidence-based medicine; evidence-based medicine requires using validated AI tools when available; therefore the hospital is committed to their use."
+        },
+        {
+          "name": "argument from waste / sunk costs",
+          "description": "Abandoning A now would waste significant prior investment; therefore A should be continued. Defeasible when future costs outweigh sunk investment.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, schemes 24–25](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "Years of AI system development would be wasted if deployment is halted; therefore development should continue."
+        },
+        {
+          "name": "argument from precaution",
+          "description": "Under conditions of serious uncertainty, if action A may produce severe or irreversible harm H, and the probability of H cannot be adequately estimated or ruled out, precautionary restriction or non-adoption of A is warranted even absent full causal proof. The strength of the precautionary obligation scales with the severity and irreversibility of the potential harm. Defeasible by evidence that the costs of precaution outweigh the protected harm, or that uncertainty has been adequately resolved.",
+          "source": "[Hansson 2003, Ethical Criteria of Risk Acceptance, Erkenntnis 59: 291–309](https://doi.org/10.1023/A:1026005915919); [Sunstein 2005, Laws of Fear: Beyond the Precautionary Principle](https://www.cambridge.org/core/books/laws-of-fear/16124E83F371BEAA5082AB07EA892836), Cambridge University Press (critical analysis of the argument's structure)",
+          "example": "Germline editing in human embryos should be restricted pending long-term safety data; the potential for irreversible heritable harm under current uncertainty triggers precautionary constraints, even absent definitive evidence of harm."
+        }
+      ]
+    }
+  },
+
+  "fallacies": {
+
+    "formal": {
+      "label": "Formal Fallacies",
+      "fallacies": [
+        {
+          "name": "affirming the consequent",
+          "description": "From 'if P then Q' and 'Q is true', incorrectly concluding 'P is true'. A formal fallacy: the truth of the consequent does not establish the truth of the antecedent, since Q may be true for reasons independent of P.",
+          "source": "Standard propositional logic; [Bad Arguments 2018, ch. 2](https://doi.org/10.1002/9781119165811.ch2)",
+          "example": "If this AI system were biased, it would perform worse on minority cohorts; it performs worse on minority cohorts; therefore this AI system is biased. (The underperformance may have causes other than bias; the conditional does not reverse.)"
+        },
+        {
+          "name": "denying the antecedent",
+          "description": "From 'if P then Q' and 'P is false', incorrectly concluding 'Q is false'. A formal fallacy: the falsity of the antecedent does not entail the falsity of the consequent, since Q may hold for independent reasons.",
+          "source": "Standard propositional logic; [Bad Arguments 2018, ch. 3](https://doi.org/10.1002/9781119165811.ch3)",
+          "example": "If the AI system had been trained on biased data, it would underperform on minority cohorts; it was not trained on biased data; therefore it does not underperform. (Other sources of underperformance remain possible.)"
+        }
+      ]
+    },
+
+    "relevance": {
+      "label": "Relevance Fallacies",
+      "fallacies": [
+        {
+          "name": "ad hominem (generic)",
+          "description": "An argument is rejected on the basis of the arguer's character, independent of the argument's content.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 42](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "This bioethicist is funded by a pharmaceutical company; therefore their argument for the intervention should be dismissed."
+        },
+        {
+          "name": "circumstantial ad hominem",
+          "description": "An arguer's credibility is undermined by pointing to a personal inconsistency between their stated commitments and their actual actions.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 45](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "You advocate for patient privacy but publish identifiable case studies; therefore your privacy argument is undermined."
+        },
+        {
+          "name": "tu quoque",
+          "description": "Criticism of a position is deflected by pointing out that the critic behaves similarly, without addressing the substance of the criticism.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, schemes 44–45](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417); [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/tu-quoque); [Bad Arguments 2018, ch. 11](https://doi.org/10.1002/9781119165811.ch11)",
+          "example": "You criticize AI bias, but traditional diagnostic tools also exhibit demographic bias."
+        },
+        {
+          "name": "pragmatic inconsistency",
+          "description": "An arguer advocates position A while their own actions imply commitment to not-A, undermining their argumentative credibility.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 43](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417)",
+          "example": "A hospital advocates for data minimization principles while retaining patient data for AI training beyond clinical necessity."
+        },
+        {
+          "name": "poisoning the well",
+          "description": "Adverse information about an interlocutor is introduced preemptively — before they have had the opportunity to present their argument — with the purpose of discrediting their contribution in advance, irrespective of its content.",
+          "source": "[Bad Arguments 2018, ch. 40](https://doi.org/10.1002/9781119165811.ch40)",
+          "example": "Before a company presents AI safety data, a regulator notes the company's past misconduct charges, priming the audience to discount the evidence before it is examined."
+        },
+        {
+          "name": "genetic fallacy",
+          "description": "An argument is judged as true or false solely on the basis of its origin, rather than its content or evidence.",
+          "source": "[yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/genetic); [Walton, Reed & Macagno 2008, ch. 9, scheme 41 (ethotic argument)](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) related; [Bad Arguments 2018, ch. 29](https://doi.org/10.1002/9781119165811.ch29)",
+          "example": "This bioethical argument was first proposed by a pro-industry lobby; therefore it should be dismissed."
+        },
+        {
+          "name": "reductio ad Hitlerum",
+          "description": "An argument, position, or person is discredited by drawing an association — however remote — with Hitler, the Nazis, or totalitarianism, regardless of whether the comparison is analytically warranted. A specific instance of the genetic fallacy applied to extreme historical cases.",
+          "source": "Strauss 1953, Natural Right and History (primary attribution of the term); [Bad Arguments 2018, ch. 44](https://doi.org/10.1002/9781119165811.ch44)",
+          "example": "'This proposal to create a registry of genetic predispositions is reminiscent of Nazi racial science' — even if historical vigilance is warranted, the rhetorical association does not address whether the specific proposal contains the objectionable features of those programs."
+        },
+        {
+          "name": "appeal to authority",
+          "description": "Expert opinion is cited without verifying domain expertise, field relevance, or trustworthiness of the source.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 2](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/appeal-to-authority); [Bad Arguments 2018, ch. 32](https://doi.org/10.1002/9781119165811.ch32)",
+          "example": "A Nobel laureate in chemistry endorses this immunotherapy; therefore it is effective."
+        },
+        {
+          "name": "ad populum",
+          "description": "A claim is accepted because it is widely believed, without independent evidence for its truth.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 4](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/bandwagon); [Bad Arguments 2018, ch. 16](https://doi.org/10.1002/9781119165811.ch16)",
+          "example": "Most patients prefer AI-assisted diagnosis; therefore AI-assisted diagnosis is preferable."
+        },
+        {
+          "name": "appeal to tradition",
+          "description": "A practice, belief, or policy is defended on the grounds that it has long been established or customary, without providing evidence that its long-standing nature confers correctness or optimality.",
+          "source": "[Bad Arguments 2018, ch. 19](https://doi.org/10.1002/9781119165811.ch19)",
+          "example": "Physician-only decision-making in oncology should be preserved because that is how clinical practice has always been organized, even in the presence of evidence that AI-assisted approaches improve outcomes."
+        },
+        {
+          "name": "chronological snobbery",
+          "description": "A claim or framework is rejected on the grounds that it is old or from a previous era, or accepted because it is new or contemporary, without evaluating its merits independently. The temporal origin of a claim is irrelevant to its truth.",
+          "source": "[Bad Arguments 2018, ch. 71](https://doi.org/10.1002/9781119165811.ch71)",
+          "example": "'Principlism was developed in the 1970s and cannot adequately address the ethical challenges of AI in medicine' — the age of the framework does not determine its applicability to new contexts."
+        },
+        {
+          "name": "appeal to nature",
+          "description": "Something is argued to be good, justified, or inevitable because it is 'natural', without establishing why naturalness confers moral status.",
+          "source": "[yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/appeal-to-nature); [Bostrom 2005, In Defense of Posthuman Dignity](https://doi.org/10.1111/j.1467-8519.2005.00437.x); not a named scheme in Walton",
+          "example": "Germline editing is wrong because it interferes with the natural human genome."
+        },
+        {
+          "name": "appeal to technology",
+          "description": "Availability or technical capability of a tool is taken as sufficient justification for its use, without meeting governance or ethical conditions.",
+          "source": "Pattern identified in STS and philosophy of technology literature. Philosophical anchor: [Winner 1980, Do Artifacts Have Politics?](https://www.jstor.org/stable/20024652); see also Morozov 2013, To Save Everything, Click Here (solutionism).",
+          "example": "The AI system is technically capable of autonomous diagnosis; therefore it should be granted decision-making authority."
+        },
+        {
+          "name": "appeal to fear",
+          "description": "A bad outcome is invoked to pressure acceptance of a claim without establishing a genuine causal link.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 36](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417); [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/appeal-to-emotion)",
+          "example": "If we do not adopt this screening protocol immediately, countless patients will die."
+        },
+        {
+          "name": "appeal to pity",
+          "description": "An emotional appeal to distress or suffering is used to bypass rational evaluation of the claim.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, schemes 38–39](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/appeal-to-emotion)",
+          "example": "Think of the children who will suffer if we do not allow this genetic intervention."
+        },
+        {
+          "name": "red herring",
+          "description": "An irrelevant consideration is introduced into an argument to distract attention from the actual issue under debate, leading interlocutors away from the original question without addressing it.",
+          "source": "[Bad Arguments 2018, ch. 43](https://doi.org/10.1002/9781119165811.ch43)",
+          "example": "In a debate about algorithmic bias in AI diagnostics, the response that 'many clinicians also make biased judgments' shifts focus away from whether the specific system meets equity standards, without addressing the original claim."
+        },
+        {
+          "name": "straw man",
+          "description": "An opposing position is misrepresented in a weaker or more extreme form, then refuted.",
+          "source": "[yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/strawman); [Walton, Reed & Macagno 2008, ch. 9, scheme 11 (argument from oppositions)](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [Bad Arguments 2018, ch. 47](https://doi.org/10.1002/9781119165811.ch47)",
+          "example": "Critics of AI diagnostics simply want to preserve physician monopolies, which is self-interest, not ethics."
+        }
+      ]
+    },
+
+    "presumption": {
+      "label": "Presumption Fallacies",
+      "fallacies": [
+        {
+          "name": "begging the question",
+          "description": "The conclusion is embedded in the premises — the argument is circular and provides no independent support for the claim.",
+          "source": "[yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/begging-the-question); classical logic; [Walton 1991, Begging the Question as a Pragmatic Fallacy](https://doi.org/10.1007/BF00485017); [Bad Arguments 2018, ch. 70](https://doi.org/10.1002/9781119165811.ch70)",
+          "example": "AI diagnostics are reliable because they produce accurate results, and we know they are accurate because they are reliable."
+        },
+        {
+          "name": "false dichotomy",
+          "description": "Only two alternatives are presented as exhaustive when further options exist.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 13](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/black-or-white); [Bad Arguments 2018, ch. 81](https://doi.org/10.1002/9781119165811.ch81)",
+          "example": "Either we deploy AI in oncology now, or patients will die from delayed diagnoses."
+        },
+        {
+          "name": "special pleading",
+          "description": "An exception or exemption is invented for one's own position when it is shown to be false, without principled justification for the exception.",
+          "source": "[yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/special-pleading); [Yim 2018, Special Pleading, in Bad Arguments](https://doi.org/10.1002/9781119165811.ch46)",
+          "example": "The general equity critique applies to all AI systems, but not to ours — ours was trained on a curated dataset."
+        },
+        {
+          "name": "no true scotsman",
+          "description": "A universal claim is protected from counterexamples by redefining the relevant category post hoc to exclude the disconfirming case, rather than revising the claim. The redefinition is not principled — it is introduced solely to immunize the position against refutation.",
+          "source": "[yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/no-true-scotsman); Flew 1975, Thinking About Thinking (primary coinage); [Anderson 2017, Is Flew's No True Scotsman Fallacy a True Fallacy?](https://doi.org/10.1007/978-3-319-57837-8_19); [Bad Arguments 2018, ch. 91](https://doi.org/10.1002/9781119165811.ch91)",
+          "example": "No genuine AI system would produce biased outputs — so that system must not have been a genuine AI system."
+        },
+        {
+          "name": "moving the goalposts",
+          "description": "After an interlocutor satisfies an initially stated condition or standard, the required condition is unilaterally raised or replaced with a new one, preventing the original burden of proof from ever being discharged.",
+          "source": "[Bad Arguments 2018, ch. 37](https://doi.org/10.1002/9781119165811.ch37)",
+          "example": "An AI triage system meets the agreed diagnostic accuracy threshold; instead of proceeding to deployment approval, regulators introduce additional performance benchmarks that were not specified in the original protocol."
+        },
+        {
+          "name": "shifting the burden of proof",
+          "description": "The party making a positive claim improperly transfers the evidentiary obligation to the opponent, requiring them to disprove rather than providing independent support for the original assertion. The burden of proof rests on whoever advances a claim; demanding that the opponent prove a negative, while the proponent's obligation remains unsatisfied, is dialectically illegitimate.",
+          "source": "[Walton 2014, Burden of Proof, Presumption and Argumentation](https://doi.org/10.1017/CBO9781107110311), Cambridge University Press; [Bad Arguments 2018, ch. 23](https://doi.org/10.1002/9781119165811.ch23)",
+          "example": "AI diagnostics should be deployed unless critics can prove they cause harm — the proponent avoids demonstrating safety by requiring opponents to prove a negative."
+        },
+        {
+          "name": "unfalsifiability",
+          "description": "A claim is asserted in a form that cannot in principle be empirically tested or refuted, yet is presented as a legitimate empirical or normative conclusion, often as a defence against counter-evidence.",
+          "source": "[Bad Arguments 2018, ch. 99](https://doi.org/10.1002/9781119165811.ch99); Popper 1959, The Logic of Scientific Discovery (falsifiability criterion)",
+          "example": "'AI will eventually reach human-level clinical judgment across all domains' — this future-oriented claim cannot be falsified in the present and is used to justify current deployment decisions."
+        },
+        {
+          "name": "naturalistic fallacy",
+          "description": "A normative conclusion ('this is good/right') is derived directly from a descriptive or natural property ('this is natural/evolved/common') without a normative bridging premise. Distinct from the appeal to nature: the appeal to nature argues from naturalness to goodness as a rhetorical move; the naturalistic fallacy names the logical gap itself — any derivation of an ought from an is — as identified by Hume and systematised by Moore.",
+          "source": "[Bad Arguments 2018, ch. 39](https://doi.org/10.1002/9781119165811.ch39); Moore 1903, Principia Ethica (primary locus); Hume 1739, Treatise of Human Nature, Book III, Part I (is-ought gap)",
+          "example": "Germline variants that have been positively selected through evolution are therefore beneficial and ought to be preserved in genetic interventions. (Evolutionary frequency is a descriptive fact; its moral status requires an independent normative premise.)"
+        },
+        {
+          "name": "moralistic fallacy",
+          "description": "A normative premise is used to derive a descriptive conclusion — an 'ought' is illicitly converted into an 'is'. Structurally the inverse of the naturalistic fallacy (which derives an ought from an is): because something ought to be the case morally, it is assumed to be the case empirically. Often manifests as the suppression or denial of empirical findings on moral grounds, particularly in debates on biology and human difference.",
+          "source": "[Davis 1978, The moralistic fallacy, Nature 272: 390](https://doi.org/10.1038/272390a0) (primary coinage); Moore 1903, Principia Ethica (companion concept, naturalistic fallacy)",
+          "example": "Because it would be morally intolerable to acknowledge heritable differences in disease susceptibility across populations, such differences are assumed not to exist — allowing the moral premise to determine the empirical conclusion."
+        },
+        {
+          "name": "personal incredulity",
+          "description": "Because the arguer finds a claim difficult to understand or unfamiliar, it is treated as implausible or false.",
+          "source": "[yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/personal-incredulity); [Bebbington 2011, Argument from personal incredulity](https://doi.org/10.1017/S1477175611000030); [Manninen 2018, Appeal to Personal Incredulity, in Bad Arguments](https://doi.org/10.1002/9781119165811.ch17)",
+          "example": "I cannot understand how a machine could diagnose cancer better than a trained physician; therefore it cannot."
+        },
+        {
+          "name": "middle ground (false compromise)",
+          "description": "A position midway between two extremes is assumed to be correct simply because it is a compromise, without independent justification.",
+          "source": "[yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/middle-ground); [Aikin & Casey 2022, Bothsiderism](https://doi.org/10.1007/s10503-021-09563-1); [Bad Arguments 2018, ch. 88](https://doi.org/10.1002/9781119165811.ch88)",
+          "example": "Some say AI should fully replace physicians, others say it should never be used; therefore partial AI assistance must be the correct policy."
+        },
+        {
+          "name": "equivocation / verbal vagueness",
+          "description": "A key term shifts meaning across premises, or is defined too vaguely to support the classification being made.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, schemes 16–17](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417); [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/ambiguity); [Bad Arguments 2018, ch. 57](https://doi.org/10.1002/9781119165811.ch57)",
+          "example": "\"Enhancement\" is used to mean both therapeutic correction and performance improvement in the same argument."
+        }
+      ]
+    },
+
+    "faulty_generalization": {
+      "label": "Faulty Generalization",
+      "fallacies": [
+        {
+          "name": "hasty generalization",
+          "description": "A general conclusion is drawn from an atypical, small, or unrepresentative sample of cases.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 6](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/anecdotal); [Bad Arguments 2018, ch. 84](https://doi.org/10.1002/9781119165811.ch84)",
+          "example": "One successful AI triage trial in a tertiary hospital proves the system is ready for universal deployment."
+        },
+        {
+          "name": "false (weak) analogy",
+          "description": "An argument by analogy in which the cited similarities between two cases are superficial, irrelevant, or outweighed by decisive dissimilarities, making the analogical inference unwarranted. Misapplication of argument from analogy: the cases are presented as structurally parallel when the relevant features that drive the conclusion differ substantially. Distinct from a strong analogy that is merely defeasible — here the analogy fails on its own terms.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 7](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [Manninen 2018, Weak Analogy, in Bad Arguments](https://doi.org/10.1002/9781119165811.ch50)",
+          "example": "Computer-assisted radiology proved beneficial in specialist centers; therefore AI-assisted diagnosis will be beneficial in all clinical settings — ignoring decisive differences in infrastructure, training requirements, and patient demographics between specialized and general contexts."
+        },
+        {
+          "name": "composition fallacy",
+          "description": "Properties of individual parts are attributed to the whole without justification.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 9](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/composition-division); [Bad Arguments 2018, ch. 53](https://doi.org/10.1002/9781119165811.ch53)",
+          "example": "Each individual component of this AI pipeline has been validated; therefore the complete integrated system is validated."
+        },
+        {
+          "name": "division fallacy",
+          "description": "Properties of the whole are attributed to its constituent parts without justification.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 10](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/composition-division)",
+          "example": "The AI system as a whole is unbiased; therefore each individual sub-model within it is unbiased."
+        },
+        {
+          "name": "texas sharpshooter",
+          "description": "Data are cherry-picked or a pattern is identified post hoc to fit a predetermined conclusion, ignoring the full data landscape.",
+          "source": "[yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/the-texas-sharpshooter); [Ioannidis 2005, Why most published research findings are false](https://doi.org/10.1371/journal.pmed.0020124)",
+          "example": "The three studies showing AI superiority are cited; the seven showing no difference or inferiority are not mentioned."
+        }
+      ]
+    },
+
+    "causal": {
+      "label": "Causal Fallacies",
+      "fallacies": [
+        {
+          "name": "false cause / post hoc ergo propter hoc",
+          "description": "Correlation or temporal succession is treated as causation without establishing a mechanistic link.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 29](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/false-cause); [Bad Arguments 2018, ch. 79](https://doi.org/10.1002/9781119165811.ch79)",
+          "example": "Mortality dropped after AI triage was introduced; therefore AI triage caused the mortality reduction."
+        },
+        {
+          "name": "correlation-causation conflation",
+          "description": "A and B are observed to co-vary statistically; therefore A causes B. Distinct from post hoc ergo propter hoc, which involves temporal succession: here the error is inferring causation from statistical co-variation alone, without establishing a causal mechanism, ruling out confounders, or satisfying other criteria for causal attribution. Correlation is a necessary but not sufficient condition for causation.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 29](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [Rothman & Greenland 1998, Modern Epidemiology](https://archive.org/details/modernepidemiolo0000unse) (causal criteria)",
+          "example": "A strong correlation between AI diagnostic scores and patient outcomes in training data is cited as evidence that the AI causes improved outcomes in deployment. (The correlation may reflect selection effects, label leakage, or shared confounders in the training set.)"
+        },
+        {
+          "name": "slippery slope (unwarranted)",
+          "description": "A sequence of causal steps from an initial action to a catastrophic outcome is asserted without evidence for each individual step.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, schemes 49–53](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417); [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/slippery-slope); [Bad Arguments 2018, ch. 94](https://doi.org/10.1002/9781119165811.ch94)",
+          "example": "Allowing somatic gene therapy will inevitably lead to heritable enhancement and eugenics."
+        },
+        {
+          "name": "sunk cost fallacy",
+          "description": "Past investment is used as a reason to continue a course of action despite evidence that it should be abandoned.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 25](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [yourlogicalfallacyis.com](https://yourlogicalfallacyis.com/sunk-cost)",
+          "example": "We have invested five years in this AI system; therefore we must deploy it regardless of the emerging safety concerns."
+        },
+        {
+          "name": "appeal to ignorance (misused)",
+          "description": "Absence of evidence is treated as evidence of absence without exhaustive-search conditions being met.",
+          "source": "[Walton, Reed & Macagno 2008, ch. 9, scheme 26](https://www.cambridge.org/core/books/abs/argumentation-schemes/users-compendium-of-schemes/F3FBFB16987B73CC0EA19C353817A417) misapplied; [Bad Arguments 2018, ch. 15](https://doi.org/10.1002/9781119165811.ch15)",
+          "example": "No studies have shown long-term harm from this editing technique; therefore it is safe."
+        }
+      ]
+    }
+  },
+
+  "biases": {
+
+    "evidence_evaluation": {
+      "label": "Evidence Evaluation",
+      "biases": [
+    {
+      "name": "confirmation bias",
+      "description": "Evidence supporting the arguer's prior position is selectively cited; disconfirming evidence is ignored or minimized.",
+      "source": "[Nickerson 1998, Confirmation bias: A ubiquitous phenomenon in many guises](https://doi.org/10.1037/1089-2680.2.2.175)",
+      "example": "Only studies confirming AI diagnostic superiority are cited; null or negative replication studies are absent."
+    },
+    {
+      "name": "selection bias (non-representative sample)",
+      "description": "The evidence base is drawn from a non-representative subset of cases, skewing conclusions about the general population.",
+      "source": "Standard epidemiology; [Rothman & Greenland 1998, Modern Epidemiology](https://archive.org/details/modernepidemiolo0000unse)",
+      "example": "AI performance data come exclusively from well-resourced tertiary hospitals; conclusions are generalized to all clinical settings."
+    },
+    {
+      "name": "publication bias",
+      "description": "Only published or positive results are cited; null or negative findings are absent from the evidence base.",
+      "source": "[Dickersin 1990, The existence of publication bias and risk factors for its occurrence](https://doi.org/10.1001/jama.1990.03440100097014)",
+      "example": "The argument relies on published RCTs showing AI efficacy, ignoring the grey literature of failed or inconclusive trials."
+    },
+    {
+      "name": "survivorship bias",
+      "description": "Only successful or surviving cases are analyzed; failed cases that would change the conclusion are systematically excluded.",
+      "source": "Wald 1943, A Method of Estimating Plane Vulnerability Based on Damage of Survivors (historical origin); standard statistics",
+      "example": "AI deployment success stories are highlighted; withdrawn or failed deployments are not part of the evidence base."
+    },
+    {
+      "name": "availability bias",
+      "description": "Easily recalled or vivid examples are overweighted relative to their actual frequency or representativeness.",
+      "source": "[Tversky & Kahneman 1973, Availability: A heuristic for judging frequency and probability](https://doi.org/10.1016/0010-0285(73)90033-9)",
+      "example": "A high-profile case of AI misdiagnosis dominates the risk assessment, although base rates suggest it is rare."
+    },
+    {
+      "name": "anchoring bias",
+      "description": "An initial figure, claim, or framing disproportionately anchors subsequent reasoning, making adjustments from the anchor insufficient.",
+      "source": "[Tversky & Kahneman 1974, Judgment under uncertainty: Heuristics and biases](https://doi.org/10.1126/science.185.4157.1124)",
+      "example": "The first published sensitivity figure (92%) anchors all subsequent comparisons, even when later studies report significantly lower values."
+    },
+    {
+      "name": "framing bias",
+      "description": "The same evidence or situation is presented in a misleading frame that distorts evaluation, typically by emphasizing losses vs. gains.",
+      "source": "[Tversky & Kahneman 1981, The framing of decisions and the psychology of choice](https://doi.org/10.1126/science.7455683)",
+      "example": "A 40% reduction in time-to-diagnosis is presented as a 'near doubling of speed' to amplify perceived benefit."
+    },
+    {
+      "name": "belief bias",
+      "description": "The logical validity of an argument is judged on the basis of the believability of its conclusion rather than the soundness of its inferential structure; valid arguments with implausible conclusions are rejected and invalid arguments with plausible conclusions are accepted.",
+      "source": "[Evans, Barston & Pollard 1983, On the conflict between logic and belief in syllogistic reasoning](https://doi.org/10.3758/BF03196989)",
+      "example": "A valid deductive argument against AI deployment is dismissed because the arguer finds the anti-AI conclusion implausible, without identifying any flaw in the premises or inference."
+    },
+    {
+      "name": "motivated reasoning",
+      "description": "The conclusion is implicitly fixed in advance; premises and evidence are selected or weighted to support it rather than derived from neutral evaluation.",
+      "source": "[Kunda 1990, The case for motivated reasoning](https://doi.org/10.1037/0033-2909.108.3.480)",
+      "example": "An institution committed to AI investment systematically weights evidence favouring deployment and discounts equity concerns."
+    },
+    {
+      "name": "favorable comparator bias",
+      "description": "A weaker or less demanding baseline is selected as the reference standard in order to make an intervention appear more effective than it would against the appropriate benchmark; the choice of comparator is not justified by the evaluative context.",
+      "source": "[Djulbegovic & Paul 2011, From efficacy to effectiveness in the face of uncertainty](https://doi.org/10.1001/jama.2011.650); clinical trial methodology literature on active comparator selection",
+      "example": "An AI diagnostic system is benchmarked against junior radiologists rather than senior specialists or multidisciplinary team review, understating the performance gap relative to the actual clinical standard of care."
+    },
+    {
+      "name": "generalization from non-representative context",
+      "description": "Findings from a specific, controlled, or atypical context are applied to a different population or setting without justification.",
+      "source": "Standard epidemiology / external validity literature; [Rothman & Greenland 1998, Modern Epidemiology](https://archive.org/details/modernepidemiolo0000unse)",
+      "example": "RCT results from a controlled research setting are directly generalized to routine clinical deployment in resource-limited hospitals."
+    }
+      ]
+    },
+
+    "causal_attribution": {
+      "label": "Causal Attribution",
+      "biases": [
+    {
+      "name": "fundamental attribution error",
+      "description": "The causal role of situational or structural factors is underweighted relative to individual agency; normative premises about responsibility or blame systematically over-attribute outcomes to persons rather than contexts.",
+      "source": "[Ross 1977, The intuitive psychologist and his shortcomings](https://doi.org/10.1016/S0065-2601(08)60357-3)",
+      "example": "Diagnostic errors are attributed to individual clinician negligence rather than systemic workload and resource constraints, skewing the normative premise about accountability."
+    },
+    {
+      "name": "self-serving bias",
+      "description": "Positive outcomes are attributed to the arguer's own choices or interventions, while negative outcomes are attributed to external factors; evidence is asymmetrically weighted to protect the arguer's position or interests.",
+      "source": "[Miller & Ross 1975, Self-serving biases in attribution of causality](https://doi.org/10.1037/h0076486)",
+      "example": "A research group attributes successful AI performance in their trials to their methodology, but attributes failures in other groups' replications to implementation differences."
+    },
+    {
+      "name": "in-group / out-group bias",
+      "description": "Evidence or conclusions systematically favour the arguer's group, institution, or ideological position at the expense of out-group perspectives.",
+      "source": "[Tajfel & Turner 1979, An integrative theory of intergroup conflict](https://psycnet.apa.org/record/2001-01466-005)",
+      "example": "Studies from the arguer's own research group are weighted more heavily than equivalent studies from other institutions."
+    },
+    {
+      "name": "just-world hypothesis",
+      "description": "An implicit premise assumes that outcomes are deserved or that the world distributes harms and benefits fairly, distorting normative arguments about justice, responsibility, and the distribution of burdens.",
+      "source": "[Lerner 1980, The Belief in a Just World: A Fundamental Delusion](https://link.springer.com/book/10.1007/978-1-4899-0448-5)",
+      "example": "Patients from underserved communities who experience AI misdiagnosis are implicitly treated as outliers whose outcomes reflect individual circumstances, rather than as evidence of systematic inequity in deployment."
+    },
+    {
+      "name": "groupthink",
+      "description": "Pressure toward consensus within a group suppresses dissenting evidence, minority expert views, and critical re-evaluation of premises, producing an argument that reflects social cohesion rather than epistemic rigour.",
+      "source": "[Janis 1972, Victims of Groupthink](https://psycnet.apa.org/record/1975-29417-000); [Turner & Pratkanis 1998, Twenty-five years of groupthink theory](https://doi.org/10.1006/obhd.1998.2756)",
+      "example": "A clinical committee unanimously endorses AI deployment because no member is willing to voice known reservations about equity, having observed that dissent is unwelcome."
+    },
+    {
+      "name": "authority bias",
+      "description": "Expert consensus is cited as conclusive without acknowledging minority expert views, limits of the consensus, or its domain boundaries.",
+      "source": "Cialdini 1984, Influence: The Psychology of Persuasion, ch. 6 (authority). HarperCollins; general cognitive science",
+      "example": "Major medical associations endorse AI triage; therefore all objections are dismissed as uninformed."
+    },
+    {
+      "name": "halo effect",
+      "description": "A positive overall impression of a source, institution, or technology in one domain is transferred to unrelated domains, inflating the credibility of premises without independent justification.",
+      "source": "Thorndike 1920, A constant error in psychological ratings, Journal of Applied Psychology 4(1), 25–29",
+      "example": "A research team with a strong reputation in radiology AI is assumed to be equally authoritative on the governance and ethical implications of deployment."
+    }
+      ]
+    },
+
+    "self_assessment": {
+      "label": "Self-Assessment",
+      "biases": [
+    {
+      "name": "Dunning-Kruger effect",
+      "description": "An arguer with limited competence in a domain overestimates their epistemic authority and presents premises with unwarranted confidence, failing to recognise the limits of their knowledge.",
+      "source": "[Kruger & Dunning 1999, Unskilled and unaware of it](https://doi.org/10.1037/0022-3514.77.6.1121)",
+      "example": "A non-specialist asserts that a complex bioethical tradeoff is straightforward and requires no expert input, missing key inferential dependencies."
+    },
+    {
+      "name": "curse of knowledge",
+      "description": "An arguer implicitly assumes the audience shares background knowledge or implicit premises that have not been made explicit, producing arguments with unjustified inferential leaps.",
+      "source": "[Camerer, Loewenstein & Weber 1989, The curse of knowledge in economic settings](https://doi.org/10.1086/261651)",
+      "example": "An expert assumes the evaluative framework of evidence-based medicine is shared by all stakeholders and omits the inferential step connecting RCT evidence to normative deployment criteria."
+    },
+    {
+      "name": "optimism bias",
+      "description": "Future benefits of a proposed course of action are systematically overestimated and future risks or costs are underestimated, skewing consequence-based arguments in favour of adoption.",
+      "source": "[Sharot 2011, The optimism bias](https://doi.org/10.1016/j.cub.2011.10.030)",
+      "example": "Projected reductions in diagnostic errors from AI deployment are treated as near-certain, while implementation costs, failure modes, and equity risks are acknowledged only minimally."
+    },
+    {
+      "name": "pessimism bias",
+      "description": "Future risks or harms of a proposed course of action are systematically overestimated and future benefits are underestimated, skewing consequence-based arguments toward precautionary rejection.",
+      "source": "[Sharot 2011, The optimism bias](https://doi.org/10.1016/j.cub.2011.10.030) (pessimism as mirror case); general risk perception literature",
+      "example": "All speculative harms of AI deployment are treated as likely, while demonstrated clinical benefits are discounted as insufficiently proven."
+    },
+    {
+      "name": "backfire effect",
+      "description": "When presented with disconfirming evidence, an arguer strengthens rather than revises their original belief, selectively reinterpreting the counter-evidence as further support for their position. Note: large-scale replications have not consistently confirmed the effect (Wood & Porter 2019, Political Behavior).",
+      "source": "[Nyhan & Reifler 2010, When corrections fail](https://doi.org/10.1007/s11109-010-9112-2)",
+      "example": "Evidence of demographic performance gaps in AI is incorporated into the argument as proof that 'more AI research is needed', rather than as a reason to delay deployment."
+    }
+      ]
+    }
+  }
+}

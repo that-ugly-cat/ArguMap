@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'en' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ t.admin_page_title }}</title>
+  <link rel="icon" type="image/png" href="/imgs/logo-automap-squared.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0f1117;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #e2e8f0;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.9rem 2rem;
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+    }
+
+    header h1 { font-size: 1.1rem; font-weight: 700; color: #fff; }
+    .header-right { display: flex; align-items: center; gap: 1rem; }
+
+    .btn-sm {
+      padding: 0.35rem 0.8rem;
+      border-radius: 5px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      display: inline-block;
+      white-space: nowrap;
+    }
+    .btn-ghost  { background: transparent; color: #a0aec0; border: 1px solid #2d3148; }
+    .btn-ghost:hover { border-color: #4a6fa5; color: #e2e8f0; }
+    .btn-primary { background: #0a3c8a; color: #fff; border: 1px solid transparent; }
+    .btn-primary:hover { background: #0d4fa8; }
+    .btn-danger  { background: transparent; color: #fc8181; border: 1px solid #7b2020; font-size: 0.72rem; padding: 0.2rem 0.5rem; }
+    .btn-danger:hover { background: #2d1515; }
+
+    .btn-lang {
+      background: #0f1117;
+      color: #4a5568;
+      border: 1px solid #2d3148;
+      padding: 0.3rem 0.6rem;
+      border-radius: 5px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-lang:hover { color: #a0aec0; border-color: #4a5568; }
+
+    main { max-width: 1000px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+    .section { margin-bottom: 2.5rem; }
+
+    h2 {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #4a5568;
+      margin-bottom: 1rem;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 1.5rem;
+    }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto auto; gap: 0.6rem; align-items: end; }
+
+    label { font-size: 0.75rem; color: #a0aec0; display: block; margin-bottom: 0.3rem; }
+
+    input[type="text"], input[type="email"], input[type="password"], select {
+      width: 100%;
+      padding: 0.5rem 0.7rem;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 5px;
+      color: #e2e8f0;
+      font-size: 0.83rem;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: #4a6fa5; }
+    select option { background: #1a1d27; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+
+    th {
+      text-align: left;
+      padding: 0.5rem 0.8rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #4a5568;
+      border-bottom: 1px solid #2d3148;
+    }
+
+    td { padding: 0.65rem 0.8rem; border-bottom: 1px solid #1e2235; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1e2235; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .badge-admin    { background: #2d1f5e; color: #b794f4; }
+    .badge-teacher  { background: #1a3a2a; color: #68d391; }
+    .badge-full     { background: #1a2d3a; color: #63b3ed; }
+    .badge-standard { background: #2d2a1a; color: #f6ad55; }
+    .badge-basic    { background: #2d2020; color: #fc8181; }
+    .badge-inactive { background: #1e2235; color: #4a5568; }
+
+    select.role-select {
+      width: auto;
+      padding: 0.2rem 0.4rem;
+      font-size: 0.75rem;
+    }
+
+    .course-row { display: grid; grid-template-columns: 1fr auto; gap: 0.6rem; align-items: end; margin-bottom: 1rem; }
+
+    .course-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.7rem 0.8rem;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      margin-top: 0.5rem;
+      font-size: 0.83rem;
+    }
+    .course-item span { color: #718096; font-size: 0.75rem; margin-left: 0.5rem; }
+
+    .msg { font-size: 0.78rem; margin-top: 0.6rem; color: #68d391; min-height: 1.2em; }
+    .msg.error { color: #fc8181; }
+
+    .batch-bar {
+      display: none;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 0.8rem;
+      background: #1e2235;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      margin-bottom: 0.8rem;
+      font-size: 0.78rem;
+      color: #a0aec0;
+    }
+    .batch-bar.visible { display: flex; }
+    .batch-bar .spacer { flex: 1; }
+    .btn-batch {
+      padding: 0.3rem 0.7rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid #2d3148;
+      background: transparent;
+      color: #a0aec0;
+    }
+    .btn-batch:hover { border-color: #4a6fa5; color: #e2e8f0; }
+    .btn-batch.danger { border-color: #7b2020; color: #fc8181; }
+    .btn-batch.danger:hover { background: #2d1515; }
+
+    input[type="checkbox"] { cursor: pointer; accent-color: #4a6fa5; width: 14px; height: 14px; }
+
+    /* ── Import modal ── */
+    .overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 12px;
+      width: min(640px, 95vw);
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header {
+      padding: 1.2rem 1.5rem 1rem;
+      border-bottom: 1px solid #2d3148;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      flex-shrink: 0;
+    }
+    .modal-body {
+      padding: 1.2rem 1.5rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-footer {
+      padding: 0.8rem 1.5rem;
+      border-top: 1px solid #2d3148;
+      display: flex;
+      gap: 0.6rem;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+    .col-ref-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 1.2rem; }
+    .col-ref-table th { color: #4a5568; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.35rem 0.5rem; border-bottom: 1px solid #2d3148; text-align: left; }
+    .col-ref-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #1e2235; vertical-align: top; }
+    .col-ref-table tr:last-child td { border-bottom: none; }
+    .col-name { font-family: monospace; color: #63b3ed; }
+    .col-req  { color: #fc8181; font-size: 0.72rem; }
+    .col-opt  { color: #718096; font-size: 0.72rem; }
+    .col-note { color: #718096; }
+    .import-results { margin-top: 1rem; }
+    .import-results h4 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #4a5568; margin-bottom: 0.4rem; }
+    .import-result-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-bottom: 1rem; }
+    .import-result-table th { color: #4a5568; font-size: 0.68rem; text-transform: uppercase; padding: 0.3rem 0.5rem; border-bottom: 1px solid #2d3148; text-align: left; }
+    .import-result-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid #1e2235; }
+    .import-result-table tr:last-child td { border-bottom: none; }
+    .pw-auto { font-family: monospace; color: #f6ad55; background: #2d2a1a; padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.75rem; }
+    .skip-list, .err-list { font-size: 0.78rem; color: #718096; padding-left: 1rem; margin-bottom: 1rem; }
+    .skip-list li { padding: 0.15rem 0; }
+    .err-list li  { padding: 0.15rem 0; color: #fc8181; }
+  </style>
+</head>
+<body>
+
+<script>
+  const T = {{ t | tojson }};
+  const IS_ADMIN = {{ is_admin | tojson }};
+</script>
+
+<header>
+  <h1>{% if is_admin %}{{ t.admin_page_title }}{% else %}{{ t.my_courses }}{% endif %}</h1>
+  <div class="header-right">
+    <a href="/app" class="btn-sm btn-ghost">{{ t.admin_back }}</a>
+    {% if is_admin %}
+    <a href="/docs/admin-guide" target="_blank" class="btn-sm btn-ghost">{{ t.docs_admin_guide }}</a>
+    {% endif %}
+    <a href="/docs/teacher-guide" target="_blank" class="btn-sm btn-ghost">{{ t.docs_teacher_guide }}</a>
+    <select class="btn-lang" onchange="location='/lang/'+this.value+'?next=/admin'">
+      <option value="en"{% if lang == 'en' %} selected{% endif %}>EN</option>
+      <option value="it"{% if lang == 'it' %} selected{% endif %}>IT</option>
+      <option value="de"{% if lang == 'de' %} selected{% endif %}>DE</option>
+    </select>
+    <form method="post" action="/logout" style="margin:0">
+      <button type="submit" class="btn-sm btn-ghost">{{ t.sign_out }}</button>
+    </form>
+  </div>
+</header>
+
+<main>
+
+  {% if is_admin %}
+  <!-- ── Users ─────────────────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>{{ t.admin_users_section }}</h2>
+    <div class="card">
+
+      <!-- Create user -->
+      <div class="form-row" style="margin-bottom:1.2rem">
+        <div>
+          <label>{{ t.name }}</label>
+          <input type="text" id="new-name" placeholder="{{ t.admin_full_name }}">
+        </div>
+        <div>
+          <label>{{ t.email }}</label>
+          <input type="email" id="new-email" placeholder="student@example.com">
+        </div>
+        <div>
+          <label>{{ t.password }}</label>
+          <input type="password" id="new-password" placeholder="{{ t.admin_temp_pw }}">
+        </div>
+        <div>
+          <label>{{ t.admin_role }}</label>
+          <select id="new-role">
+            <option value="basic">basic</option>
+            <option value="standard" selected>standard</option>
+            <option value="full">full</option>
+            <option value="teacher">teacher</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div style="padding-top:1.3rem">
+          <button class="btn-sm btn-primary" onclick="createUser()">{{ t.admin_add_user }}</button>
+        </div>
+      </div>
+      <div class="msg" id="user-msg"></div>
+
+      <!-- Import from Excel -->
+      <div style="margin-bottom:0.8rem">
+        <button class="btn-sm btn-ghost" onclick="openImportModal()">{{ t.admin_import_btn }}</button>
+      </div>
+
+      <!-- Course filter -->
+      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.8rem">
+        <label style="margin:0;white-space:nowrap">{{ t.admin_filter_course }}</label>
+        <select id="course-filter" style="width:auto;padding:0.3rem 0.6rem;font-size:0.8rem" onchange="applyCourseFilter()">
+          <option value="">{{ t.admin_all_users }}</option>
+        </select>
+        <span id="filter-count" style="font-size:0.75rem;color:#4a5568"></span>
+      </div>
+
+      <!-- Batch bar -->
+      <div class="batch-bar" id="batch-bar">
+        <span id="batch-count"></span>
+        <div class="spacer"></div>
+        <button class="btn-batch" onclick="batchAction('activate')">{{ t.admin_activate }}</button>
+        <button class="btn-batch" onclick="batchAction('deactivate')">{{ t.admin_deactivate }}</button>
+        <button class="btn-batch danger" onclick="batchAction('delete')">{{ t.admin_delete }}</button>
+      </div>
+
+      <!-- Users table -->
+      <table id="users-table">
+        <thead>
+          <tr>
+            <th style="width:2rem"><input type="checkbox" id="check-all" onchange="toggleAll(this)"></th>
+            <th>{{ t.name }}</th>
+            <th>{{ t.email }}</th>
+            <th>{{ t.admin_role }}</th>
+            <th>{{ t.admin_status }}</th>
+            <th>{{ t.admin_reset_pw }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody">
+          <tr><td colspan="7" style="color:#4a5568">{{ t.loading }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Usage & costs ────────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>{{ t.admin_usage }}</h2>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <span style="font-size:0.82rem;color:#718096">{{ t.admin_total_spend }}</span>
+        <span id="total-cost" style="font-size:1.1rem;font-weight:700;color:#e2e8f0">—</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>{{ t.admin_user_col }}</th>
+            <th>{{ t.admin_tokens_in }}</th>
+            <th>{{ t.admin_tokens_out }}</th>
+            <th>{{ t.admin_cost_month }}</th>
+            <th>{{ t.admin_budget_month }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="usage-tbody">
+          <tr><td colspan="6" style="color:#4a5568">{{ t.loading }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% endif %}
+  <!-- ── Courses ────────────────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>{{ t.admin_courses }}</h2>
+    <div class="card">
+      {% if is_admin %}
+      <div class="course-row">
+        <div>
+          <label>{{ t.admin_course_name }}</label>
+          <input type="text" id="new-course" placeholder="{{ t.admin_course_ph }}">
+        </div>
+        <div style="padding-top:1.3rem">
+          <button class="btn-sm btn-primary" onclick="createCourse()">{{ t.create }}</button>
+        </div>
+      </div>
+      {% endif %}
+      <div class="msg" id="course-msg"></div>
+      <div id="courses-list"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Import modal ───────────────────────────────────────────────────────── -->
+<div class="overlay" id="import-overlay" onclick="if(event.target===this)closeImportModal()">
+  <div class="modal">
+    <div class="modal-header" id="import-modal-title">{{ t.admin_import_title }}</div>
+    <div class="modal-body">
+
+      <!-- Column reference table -->
+      <p style="font-size:0.75rem;color:#718096;margin-bottom:0.6rem">{{ t.admin_import_columns_h }}</p>
+      <table class="col-ref-table">
+        <thead>
+          <tr>
+            <th style="width:22%">{{ t.name }}</th>
+            <th style="width:20%">{{ t.admin_role }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="col-name">name</td>
+            <td><span class="col-req">{{ t.admin_import_col_required }}</span></td>
+            <td class="col-note">—</td>
+          </tr>
+          <tr>
+            <td class="col-name">email</td>
+            <td><span class="col-req">{{ t.admin_import_col_required }}</span></td>
+            <td class="col-note">—</td>
+          </tr>
+          <tr>
+            <td class="col-name">password</td>
+            <td><span class="col-opt">{{ t.admin_import_col_optional }}</span></td>
+            <td class="col-note">{{ t.admin_import_col_pw_note }}</td>
+          </tr>
+          <tr>
+            <td class="col-name">role</td>
+            <td><span class="col-opt">{{ t.admin_import_col_optional }}</span></td>
+            <td class="col-note">{{ t.admin_import_col_role_note }}</td>
+          </tr>
+          <tr>
+            <td class="col-name">course</td>
+            <td><span class="col-opt">{{ t.admin_import_col_optional }}</span></td>
+            <td class="col-note">{{ t.admin_import_col_course_note }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- File input -->
+      <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.6rem">
+        <label style="margin:0;white-space:nowrap">{{ t.admin_import_choose }}</label>
+        <input type="file" id="import-file" accept=".xlsx"
+          style="font-size:0.8rem;color:#a0aec0;background:#0f1117;border:1px solid #2d3148;border-radius:5px;padding:0.3rem 0.6rem;flex:1">
+      </div>
+      <div class="msg" id="import-msg" style="min-height:1em"></div>
+
+      <!-- Results (hidden until import runs) -->
+      <div class="import-results" id="import-results" style="display:none">
+        <div id="import-created-block">
+          <h4 id="import-created-h"></h4>
+          <table class="import-result-table">
+            <thead>
+              <tr>
+                <th>{{ t.name }}</th>
+                <th>{{ t.email }}</th>
+                <th>{{ t.password }}</th>
+                <th>{{ t.admin_courses }}</th>
+              </tr>
+            </thead>
+            <tbody id="import-created-tbody"></tbody>
+          </table>
+        </div>
+        <div id="import-skipped-block">
+          <h4 id="import-skipped-h"></h4>
+          <ul class="skip-list" id="import-skipped-list"></ul>
+        </div>
+        <div id="import-errors-block">
+          <h4 id="import-errors-h"></h4>
+          <ul class="err-list" id="import-errors-list"></ul>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm btn-ghost" id="import-cancel-btn" onclick="closeImportModal()">{{ t.cancel }}</button>
+      <button class="btn-sm btn-primary" id="import-run-btn" onclick="runImport()">{{ t.admin_import_run }}</button>
+      <button class="btn-sm btn-primary" id="import-done-btn" onclick="closeImportModal()" style="display:none;background:#1a3a2a;border-color:#276749;color:#68d391">{{ t.admin_import_done }}</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ROLES = ['basic','standard','full','teacher','admin'];
+
+  function badgeClass(role) {
+    return 'badge badge-' + (role || 'basic');
+  }
+
+  // ── Users ──────────────────────────────────────────────────────────────────
+  let _allUsers      = [];
+  let _filteredUsers = [];
+
+  async function loadUsers() {
+    const res = await fetch('/api/admin/users');
+    _allUsers = await res.json();
+    await applyCourseFilter();
+  }
+
+  async function applyCourseFilter() {
+    const courseId = document.getElementById('course-filter').value;
+    const countEl  = document.getElementById('filter-count');
+    if (!courseId) {
+      _filteredUsers = _allUsers;
+      countEl.textContent = '';
+    } else {
+      const res     = await fetch('/api/courses/' + courseId);
+      const course  = await res.json();
+      const ids     = new Set(course.students.map(s => s.id));
+      _filteredUsers = _allUsers.filter(u => ids.has(u.id));
+      const n = _filteredUsers.length;
+      countEl.textContent = n + ' ' + (n !== 1 ? T.admin_students_pl : T.admin_student);
+    }
+    document.getElementById('check-all').checked = false;
+    renderUsers();
+  }
+
+  function renderUsers() {
+    const tbody = document.getElementById('users-tbody');
+    tbody.innerHTML = _filteredUsers.map(u => `
+      <tr>
+        <td><input type="checkbox" class="user-check" value="${u.id}" onchange="updateBatchBar()"></td>
+        <td>${escHtml(u.name || '—')}</td>
+        <td style="color:#718096">${escHtml(u.email)}</td>
+        <td>
+          <select class="role-select" onchange="setRole(${u.id}, this.value)">
+            ${ROLES.map(r => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${r}</option>`).join('')}
+          </select>
+        </td>
+        <td>
+          ${u.is_active
+            ? `<span class="badge badge-full">${escHtml(T.admin_active_badge)}</span>`
+            : `<span class="badge badge-inactive">${escHtml(T.admin_inactive_badge)}</span>`}
+        </td>
+        <td style="white-space:nowrap">
+          <input type="password" id="pw-${u.id}" placeholder="${escHtml(T.admin_new_pw_ph)}"
+            style="width:140px;padding:0.2rem 0.4rem;background:#0f1117;border:1px solid #2d3148;border-radius:4px;color:#e2e8f0;font-size:0.78rem">
+          <button class="btn-sm btn-ghost" style="font-size:0.72rem;padding:0.2rem 0.5rem;margin-left:0.3rem"
+            onclick="setPassword(${u.id})">${escHtml(T.admin_set)}</button>
+        </td>
+        <td style="white-space:nowrap">
+          <div style="display:flex;gap:0.4rem">
+            <button class="btn-danger" onclick="toggleActive(${u.id}, ${!u.is_active})">
+              ${u.is_active ? escHtml(T.admin_deactivate) : escHtml(T.admin_activate)}
+            </button>
+            <button class="btn-danger" onclick="deleteUser(${u.id}, '${escHtml(u.name || u.email)}')">${escHtml(T.admin_delete)}</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+    updateBatchBar();
+  }
+
+  function toggleAll(cb) {
+    document.querySelectorAll('.user-check').forEach(c => c.checked = cb.checked);
+    updateBatchBar();
+  }
+
+  function updateBatchBar() {
+    const checked = document.querySelectorAll('.user-check:checked');
+    const bar     = document.getElementById('batch-bar');
+    const count   = document.getElementById('batch-count');
+    const n       = checked.length;
+    bar.classList.toggle('visible', n > 0);
+    count.textContent = n + ' ' + T.admin_selected;
+    document.getElementById('check-all').indeterminate =
+      n > 0 && n < document.querySelectorAll('.user-check').length;
+  }
+
+  function selectedIds() {
+    return [...document.querySelectorAll('.user-check:checked')].map(c => parseInt(c.value));
+  }
+
+  async function deleteUser(uid, label) {
+    const msg = T.admin_confirm_delete_user.replace('{name}', label);
+    if (!confirm(msg)) return;
+    const res = await fetch(`/api/admin/users/${uid}`, { method: 'DELETE' });
+    if (res.ok) {
+      showMsg('user-msg', T.admin_user_deleted);
+    } else {
+      const err = await res.json();
+      showMsg('user-msg', err.detail || T.error, true);
+    }
+    loadUsers();
+  }
+
+  async function batchAction(action) {
+    const ids = selectedIds();
+    if (!ids.length) return;
+    if (action === 'delete') {
+      const msg = T.admin_confirm_delete_users.replace('{n}', ids.length);
+      if (!confirm(msg)) return;
+    }
+    const res = await fetch('/api/admin/users/batch', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ ids, action })
+    });
+    const data = await res.json();
+    if (data.errors?.length) {
+      showMsg('user-msg', data.errors.join(' — '), true);
+    } else {
+      showMsg('user-msg', T.admin_done);
+    }
+    document.getElementById('check-all').checked = false;
+    loadUsers();
+  }
+
+  async function createUser() {
+    const name     = document.getElementById('new-name').value.trim();
+    const email    = document.getElementById('new-email').value.trim();
+    const password = document.getElementById('new-password').value;
+    const role     = document.getElementById('new-role').value;
+    if (!email || !password) { showMsg('user-msg', T.admin_email_pw_required, true); return; }
+    const res = await fetch('/api/admin/users', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name, email, password, role })
+    });
+    if (res.ok) {
+      showMsg('user-msg', T.admin_user_created);
+      document.getElementById('new-name').value = '';
+      document.getElementById('new-email').value = '';
+      document.getElementById('new-password').value = '';
+      loadUsers();
+    } else {
+      const err = await res.json();
+      showMsg('user-msg', err.detail || T.error, true);
+    }
+  }
+
+  async function setRole(uid, role) {
+    await fetch(`/api/admin/users/${uid}/role`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ role })
+    });
+    loadUsers();
+  }
+
+  async function toggleActive(uid, active) {
+    await fetch(`/api/admin/users/${uid}/active`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ is_active: active })
+    });
+    loadUsers();
+  }
+
+  async function setPassword(uid) {
+    const input = document.getElementById('pw-' + uid);
+    const pw = input.value.trim();
+    if (!pw) { showMsg('user-msg', T.admin_pw_empty, true); return; }
+    const res = await fetch(`/api/admin/users/${uid}/password`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ password: pw })
+    });
+    if (res.ok) {
+      input.value = '';
+      showMsg('user-msg', T.admin_pw_updated);
+    } else {
+      const err = await res.json();
+      showMsg('user-msg', err.detail || T.error, true);
+    }
+  }
+
+  // ── Courses ────────────────────────────────────────────────────────────────
+  async function loadCourses() {
+    const res     = await fetch('/api/courses');
+    const courses = await res.json();
+
+    const sel = document.getElementById('course-filter');
+    if (sel) {
+      courses.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value       = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+      });
+    }
+
+    const el = document.getElementById('courses-list');
+    if (!courses.length) {
+      el.innerHTML = `<p style="color:#4a5568;font-size:0.82rem;margin-top:0.5rem">${escHtml(T.admin_no_courses)}</p>`;
+      return;
+    }
+    el.innerHTML = courses.map(c => `
+      <div class="course-item">
+        <div>
+          <strong>${escHtml(c.name)}</strong>
+          <span>${escHtml(T.admin_teachers)} ${escHtml((c.teachers || []).join(', ') || '—')}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.6rem">
+          <a href="/admin/courses/${c.id}" style="font-size:0.75rem;color:#4a6fa5;text-decoration:none">${escHtml(T.admin_manage)}</a>
+          ${IS_ADMIN ? `<button class="btn-danger" onclick="deleteCourse(${c.id}, '${escHtml(c.name)}')">${escHtml(T.admin_delete)}</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function deleteCourse(id, name) {
+    const res     = await fetch('/api/courses/' + id);
+    const course  = await res.json();
+    const n       = course.students.length;
+    if (n > 0) {
+      const msg1 = T.admin_confirm_course_busy.replace('{name}', name).replace('{n}', n);
+      if (!confirm(msg1)) return;
+      if (!confirm(T.admin_confirm_sure)) return;
+    } else {
+      const msg2 = T.admin_confirm_delete_course.replace('{name}', name);
+      if (!confirm(msg2)) return;
+    }
+    const del = await fetch('/api/courses/' + id, { method: 'DELETE' });
+    if (del.ok) {
+      showMsg('course-msg', T.admin_course_deleted);
+      const sel = document.getElementById('course-filter');
+      const opt = sel.querySelector(`option[value="${id}"]`);
+      if (opt) opt.remove();
+      if (document.getElementById('course-filter').value === String(id)) {
+        sel.value = '';
+        await applyCourseFilter();
+      }
+      document.getElementById('courses-list').innerHTML = '';
+      loadCourses();
+    } else {
+      const err = await del.json();
+      showMsg('course-msg', err.detail || T.error, true);
+    }
+  }
+
+  async function createCourse() {
+    const name = document.getElementById('new-course').value.trim();
+    if (!name) return;
+    const res = await fetch('/api/courses', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name })
+    });
+    if (res.ok) {
+      showMsg('course-msg', T.admin_course_created);
+      document.getElementById('new-course').value = '';
+      document.getElementById('courses-list').innerHTML = '';
+      loadCourses();
+    } else {
+      const err = await res.json();
+      showMsg('course-msg', err.detail || T.error, true);
+    }
+  }
+
+  // ── Utils ──────────────────────────────────────────────────────────────────
+  function showMsg(id, text, error=false) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'msg' + (error ? ' error' : '');
+    setTimeout(() => el.textContent = '', 3000);
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Usage ──────────────────────────────────────────────────────────────────
+  async function loadUsage() {
+    const res  = await fetch('/api/admin/usage');
+    const rows = await res.json();
+    const tbody = document.getElementById('usage-tbody');
+    const total = rows.reduce((s, r) => s + r.month_cost_usd, 0);
+    document.getElementById('total-cost').textContent = '$' + total.toFixed(4);
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="color:#4a5568">${escHtml(T.admin_no_usage)}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>
+          <div style="font-weight:500">${escHtml(r.name)}</div>
+          <div style="font-size:0.72rem;color:#718096">${escHtml(r.email)}</div>
+        </td>
+        <td style="color:#718096">${r.tokens_in.toLocaleString()}</td>
+        <td style="color:#718096">${r.tokens_out.toLocaleString()}</td>
+        <td style="font-weight:600;color:${r.budget_usd && r.month_cost_usd >= r.budget_usd ? '#fc8181' : '#e2e8f0'}">
+          $${r.month_cost_usd.toFixed(4)}
+        </td>
+        <td>
+          <input type="number" step="0.01" min="0" placeholder="${escHtml(T.admin_no_limit_ph)}"
+            value="${r.budget_usd ?? ''}"
+            style="width:90px;padding:0.2rem 0.4rem;background:#0f1117;border:1px solid #2d3148;border-radius:4px;color:#e2e8f0;font-size:0.78rem"
+            id="budget-${r.user_id}">
+        </td>
+        <td>
+          <button class="btn-sm btn-ghost" style="font-size:0.72rem;padding:0.2rem 0.5rem"
+            onclick="setBudget(${r.user_id})">${escHtml(T.admin_set)}</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async function setBudget(uid) {
+    const val = document.getElementById('budget-' + uid).value;
+    const budget_usd = val === '' ? null : parseFloat(val);
+    await fetch(`/api/admin/users/${uid}/budget`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ budget_usd })
+    });
+    loadUsage();
+  }
+
+  if (IS_ADMIN) loadUsers();
+  loadCourses();
+  if (IS_ADMIN) loadUsage();
+
+  // ── Import modal ────────────────────────────────────────────────────────────
+  function openImportModal() {
+    document.getElementById('import-file').value = '';
+    document.getElementById('import-msg').textContent = '';
+    document.getElementById('import-results').style.display = 'none';
+    document.getElementById('import-run-btn').style.display = '';
+    document.getElementById('import-run-btn').disabled = false;
+    document.getElementById('import-cancel-btn').style.display = '';
+    document.getElementById('import-done-btn').style.display = 'none';
+    document.getElementById('import-overlay').classList.add('open');
+  }
+
+  function closeImportModal() {
+    document.getElementById('import-overlay').classList.remove('open');
+  }
+
+  async function runImport() {
+    const fileInput = document.getElementById('import-file');
+    if (!fileInput.files.length) {
+      document.getElementById('import-msg').textContent = T.admin_import_choose;
+      document.getElementById('import-msg').className = 'msg error';
+      return;
+    }
+    const btn = document.getElementById('import-run-btn');
+    btn.disabled = true;
+
+    const fd = new FormData();
+    fd.append('file', fileInput.files[0]);
+
+    let data;
+    try {
+      const res = await fetch('/api/admin/users/import', { method: 'POST', body: fd });
+      data = await res.json();
+      if (!res.ok) {
+        document.getElementById('import-msg').textContent = data.detail || T.error;
+        document.getElementById('import-msg').className = 'msg error';
+        btn.disabled = false;
+        return;
+      }
+    } catch(e) {
+      document.getElementById('import-msg').textContent = T.error;
+      document.getElementById('import-msg').className = 'msg error';
+      btn.disabled = false;
+      return;
+    }
+
+    document.getElementById('import-msg').textContent = T.admin_import_done;
+    document.getElementById('import-msg').className = 'msg';
+
+    // Created
+    const createdBlock = document.getElementById('import-created-block');
+    const createdH     = document.getElementById('import-created-h');
+    const createdTbody = document.getElementById('import-created-tbody');
+    if (data.created.length) {
+      createdH.textContent = T.admin_import_created + ': ' + data.created.length;
+      createdTbody.innerHTML = data.created.map(u => `
+        <tr>
+          <td>${escHtml(u.name)}</td>
+          <td style="color:#718096">${escHtml(u.email)}</td>
+          <td>${u.password ? `<span class="pw-auto">${escHtml(u.password)}</span> <span style="font-size:0.7rem;color:#718096">${escHtml(T.admin_import_pw_generated)}</span>` : '—'}</td>
+          <td style="color:#718096">${escHtml(u.course || '—')}</td>
+        </tr>
+      `).join('');
+      createdBlock.style.display = '';
+    } else {
+      createdBlock.style.display = 'none';
+    }
+
+    // Skipped
+    const skippedBlock = document.getElementById('import-skipped-block');
+    const skippedH     = document.getElementById('import-skipped-h');
+    const skippedList  = document.getElementById('import-skipped-list');
+    if (data.skipped.length) {
+      skippedH.textContent = T.admin_import_skipped + ': ' + data.skipped.length;
+      skippedList.innerHTML = data.skipped.map(e => `<li>${escHtml(e)}</li>`).join('');
+      skippedBlock.style.display = '';
+    } else {
+      skippedBlock.style.display = 'none';
+    }
+
+    // Errors
+    const errorsBlock = document.getElementById('import-errors-block');
+    const errorsH     = document.getElementById('import-errors-h');
+    const errorsList  = document.getElementById('import-errors-list');
+    if (data.errors.length) {
+      errorsH.textContent = T.admin_import_errors + ': ' + data.errors.length;
+      errorsList.innerHTML = data.errors.map(e =>
+        `<li>${escHtml(T.admin_import_row)} ${e.row}: ${escHtml(e.reason)}</li>`
+      ).join('');
+      errorsBlock.style.display = '';
+    } else {
+      errorsBlock.style.display = 'none';
+    }
+
+    document.getElementById('import-results').style.display = '';
+    document.getElementById('import-run-btn').style.display = 'none';
+    document.getElementById('import-cancel-btn').style.display = 'none';
+    document.getElementById('import-done-btn').style.display = '';
+    loadUsers();
+  }
+</script>
+
+</body>
+</html>

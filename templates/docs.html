@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'en' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} — ArguMap</title>
+  <link rel="icon" type="image/png" href="/imgs/logo-automap-squared.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0f1117;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #e2e8f0;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.9rem 2rem;
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+    }
+
+    header h1 { font-size: 1.1rem; font-weight: 700; color: #fff; }
+
+    .btn-sm {
+      padding: 0.35rem 0.8rem;
+      border-radius: 5px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      display: inline-block;
+      color: #a0aec0;
+      background: transparent;
+      border: 1px solid #2d3148;
+    }
+    .btn-sm:hover { border-color: #4a6fa5; color: #e2e8f0; }
+
+    main {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 5rem;
+    }
+
+    /* ── Markdown content ── */
+    .md h1 { font-size: 1.6rem; font-weight: 700; color: #fff; margin-bottom: 1.5rem; }
+    .md h2 { font-size: 1.05rem; font-weight: 700; color: #e2e8f0; margin: 2.2rem 0 0.8rem;
+              padding-bottom: 0.4rem; border-bottom: 1px solid #2d3148; }
+    .md h3 { font-size: 0.9rem; font-weight: 700; color: #a0aec0; margin: 1.4rem 0 0.5rem; }
+
+    .md p  { font-size: 0.875rem; line-height: 1.75; color: #cbd5e0; margin-bottom: 0.9rem; }
+
+    .md ul, .md ol { padding-left: 1.4rem; margin-bottom: 0.9rem; }
+    .md li { font-size: 0.875rem; line-height: 1.7; color: #cbd5e0; margin-bottom: 0.2rem; }
+
+    .md strong { color: #e2e8f0; font-weight: 600; }
+    .md em     { color: #a0aec0; }
+    .md code   { font-family: monospace; font-size: 0.82rem; background: #1e2235;
+                 padding: 0.1rem 0.35rem; border-radius: 3px; color: #63b3ed; }
+
+    .md blockquote {
+      border-left: 3px solid #4a6fa5;
+      padding: 0.5rem 1rem;
+      margin: 1rem 0;
+      background: #1a1d27;
+      border-radius: 0 6px 6px 0;
+    }
+    .md blockquote p { color: #a0aec0; margin-bottom: 0; }
+
+    .md hr { border: none; border-top: 1px solid #2d3148; margin: 2rem 0; }
+
+    .md table { width: 100%; border-collapse: collapse; font-size: 0.83rem; margin-bottom: 1.2rem; }
+    .md th {
+      text-align: left; padding: 0.5rem 0.8rem;
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: #4a5568; border-bottom: 1px solid #2d3148;
+    }
+    .md td { padding: 0.55rem 0.8rem; border-bottom: 1px solid #1e2235; color: #cbd5e0; vertical-align: top; }
+    .md tr:last-child td { border-bottom: none; }
+    .md td:nth-child(n+2) { text-align: center; }
+    .md th:nth-child(n+2) { text-align: center; }
+    /* Override center for non-icon columns (first child always left) */
+    .md td:first-child, .md th:first-child { text-align: left; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>ArguMap</h1>
+  <a href="javascript:window.close()" class="btn-sm">✕ {{ t.close }}</a>
+</header>
+
+<main>
+  <div class="md">
+    {{ content | safe }}
+  </div>
+</main>
+
+</body>
+</html>

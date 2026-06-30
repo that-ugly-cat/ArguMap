@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'en' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ArguMap</title>
+  <link rel="icon" type="image/png" href="/imgs/logo-automap-squared.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0f1117;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #e2e8f0;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.9rem 2rem;
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+    }
+
+    header h1 { font-size: 1.1rem; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
+
+    .header-right { display: flex; align-items: center; gap: 1rem; }
+
+    .user-name { font-size: 0.82rem; color: #718096; }
+
+    .btn-sm {
+      padding: 0.35rem 0.8rem;
+      border-radius: 5px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+    }
+
+    .btn-ghost { background: transparent; color: #a0aec0; border: 1px solid #2d3148; }
+    .btn-ghost:hover { border-color: #4a6fa5; color: #e2e8f0; }
+
+    .btn-admin { background: #2d3148; color: #a0aec0; }
+    .btn-admin:hover { background: #3a4060; color: #e2e8f0; }
+
+    .btn-lang {
+      background: #0f1117;
+      color: #4a5568;
+      border: 1px solid #2d3148;
+      padding: 0.3rem 0.6rem;
+      border-radius: 5px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-lang:hover { color: #a0aec0; border-color: #4a5568; }
+
+    main { max-width: 860px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+    h2 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: #4a5568; margin-bottom: 1rem; }
+
+    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2.5rem; }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 1.5rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .card:hover { border-color: #4a6fa5; background: #1e2235; }
+    .card.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+    .card-icon { font-size: 1.6rem; margin-bottom: 0.8rem; }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.3rem; }
+    .card p { font-size: 0.78rem; color: #718096; line-height: 1.5; }
+
+    .overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    .modal h3 { font-size: 1rem; font-weight: 600; margin-bottom: 1.2rem; }
+
+    textarea {
+      width: 100%;
+      height: 180px;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      padding: 0.7rem;
+      resize: vertical;
+      outline: none;
+      font-family: inherit;
+    }
+
+    textarea:focus { border-color: #4a6fa5; }
+
+    .file-upload-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.6rem;
+      font-size: 0.78rem;
+      color: #718096;
+      cursor: pointer;
+    }
+    .file-upload-label:hover { color: #a0aec0; }
+    .file-upload-label input[type="file"] { display: none; }
+    #file-upload-name {
+      font-size: 0.75rem;
+      color: #48bb78;
+      margin-top: 0.3rem;
+      display: none;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      outline: none;
+      margin-top: 0.8rem;
+    }
+
+    input[type="text"]:focus { border-color: #4a6fa5; }
+
+    .modal-footer { display: flex; justify-content: flex-end; gap: 0.7rem; margin-top: 1.2rem; }
+
+    .btn-primary {
+      padding: 0.5rem 1.2rem;
+      background: #0a3c8a;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-primary:hover { background: #0d4fa8; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .map-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+    .map-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      color: inherit;
+      transition: border-color 0.15s;
+    }
+
+    .map-item:hover { border-color: #4a6fa5; }
+
+    .map-link {
+      flex: 1; text-decoration: none; color: inherit; min-width: 0;
+    }
+
+    .map-title { font-size: 0.88rem; font-weight: 500; }
+    .map-meta  { font-size: 0.75rem; color: #718096; margin-top: 0.15rem; }
+
+    .map-open {
+      font-size: 0.75rem; color: #4a6fa5;
+      text-decoration: none; padding: 0.3rem 0.6rem; white-space: nowrap;
+    }
+
+    .map-course-sel {
+      padding: 0.2rem 0.4rem;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 4px;
+      color: #718096;
+      font-size: 0.72rem;
+      outline: none;
+      cursor: pointer;
+      max-width: 130px;
+    }
+    .map-course-sel:focus { border-color: #4a6fa5; }
+
+    .empty-state { color: #4a5568; font-size: 0.85rem; padding: 1rem 0; }
+
+    .analysis-step { margin-bottom: 1.2rem; }
+    .analysis-step-name {
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: #48bb78; margin-bottom: 0.4rem;
+    }
+    .analysis-step-text {
+      font-size: 0.78rem; color: #a0aec0; font-family: monospace;
+      white-space: pre-wrap; line-height: 1.55; background: #0f1117;
+      border: 1px solid #2d3148; border-radius: 5px; padding: 0.6rem 0.8rem;
+    }
+    .btn-analysis {
+      font-size: 0.7rem; color: #718096; background: none;
+      border: 1px solid #2d3148; border-radius: 4px;
+      padding: 0.2rem 0.5rem; cursor: pointer; white-space: nowrap;
+    }
+    .btn-analysis:hover { border-color: #4a6fa5; color: #a0aec0; }
+    .btn-delete {
+      font-size: 0.7rem; color: #718096; background: none;
+      border: 1px solid #2d3148; border-radius: 4px;
+      padding: 0.2rem 0.5rem; cursor: pointer; white-space: nowrap;
+    }
+    .btn-delete:hover { border-color: #fc8181; color: #fc8181; }
+
+    #progress {
+      display: none;
+      margin-top: 1rem;
+      max-height: 300px;
+      overflow-y: auto;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      padding: 0.6rem 0.8rem;
+    }
+    .step-entry { margin-bottom: 0.9rem; }
+    .step-entry:last-child { margin-bottom: 0; }
+    .step-name {
+      font-size: 0.75rem; font-weight: 700; color: #48bb78;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 0.3rem;
+    }
+    .step-name::before { content: '✓ '; }
+    .step-name.running { color: #63b3ed; }
+    .step-name.running::before { content: '↻ '; }
+    .step-reasoning {
+      font-size: 0.75rem; color: #a0aec0; font-family: monospace;
+      white-space: pre-wrap; line-height: 1.5;
+    }
+    .step-error { font-size: 0.78rem; color: #fc8181; margin-top: 0.4rem; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-ring {
+      width: 16px; height: 16px;
+      border: 2px solid #2d3148;
+      border-top-color: #63b3ed;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .spinner-row {
+      display: flex; align-items: center; gap: .5rem;
+      font-size: .75rem; color: #718096; padding: .15rem 0;
+    }
+  </style>
+</head>
+<body>
+
+<script>const T = {{ t | tojson }};</script>
+
+<header>
+  <h1>ArguMap</h1>
+  <div class="header-right">
+    <span class="user-name">{{ user.name or user.email }}</span>
+    {% if can_admin %}
+    <a href="/admin" class="btn-sm btn-admin">{{ t.admin }}</a>
+    {% elif can_manage_courses %}
+    <a href="/admin" class="btn-sm btn-admin">{{ t.my_courses }}</a>
+    {% endif %}
+    <select class="btn-lang" onchange="location='/lang/'+this.value+'?next=/app'">
+      <option value="en"{% if lang == 'en' %} selected{% endif %}>EN</option>
+      <option value="it"{% if lang == 'it' %} selected{% endif %}>IT</option>
+      <option value="de"{% if lang == 'de' %} selected{% endif %}>DE</option>
+    </select>
+    <a href="/docs/user-guide" target="_blank" class="btn-sm btn-ghost" style="font-size:0.82rem;padding:0.3rem 0.55rem" title="Help">?</a>
+    <button class="btn-sm btn-ghost" onclick="openChangePw()">{{ t.app_change_pw }}</button>
+    <form method="post" action="/logout" style="margin:0">
+      <button type="submit" class="btn-sm btn-ghost">{{ t.sign_out }}</button>
+    </form>
+  </div>
+</header>
+
+<main>
+
+  <h2>{{ t.app_new_map }}</h2>
+  <div class="cards">
+    {% if can_pipeline %}
+    <div class="card" onclick="openPipeline()">
+      <div class="card-icon">⚡</div>
+      <h3>{{ t.app_analyse }}</h3>
+      <p>{{ t.app_analyse_desc }}</p>
+    </div>
+    {% else %}
+    <div class="card disabled">
+      <div class="card-icon">⚡</div>
+      <h3>{{ t.app_analyse }}</h3>
+      <p>{{ t.app_locked }}</p>
+    </div>
+    {% endif %}
+
+    <a class="card" href="/map?mode=guided">
+      <div class="card-icon">🧭</div>
+      <h3>{{ t.app_guided_map }}</h3>
+      <p>{{ t.app_guided_desc }}</p>
+    </a>
+
+    <a class="card" href="/map">
+      <div class="card-icon">✏️</div>
+      <h3>{{ t.app_empty_map }}</h3>
+      <p>{{ t.app_empty_desc }}</p>
+    </a>
+  </div>
+
+  <h2>{{ t.app_my_maps }}</h2>
+  <div id="map-filter-row" style="display:none;align-items:center;gap:0.6rem;margin-bottom:0.8rem">
+    <label style="margin:0;white-space:nowrap;font-size:0.75rem;color:#a0aec0">{{ t.app_filter_course }}</label>
+    <select id="map-course-filter" style="width:auto;padding:0.3rem 0.6rem;font-size:0.8rem" onchange="renderMaps(this.value)"></select>
+  </div>
+  <div class="map-list" id="map-list">
+    <p class="empty-state">{{ t.loading }}</p>
+  </div>
+
+</main>
+
+<!-- Source text modal -->
+<div class="overlay" id="text-overlay">
+  <div class="modal" style="max-width:680px;max-height:80vh;display:flex;flex-direction:column">
+    <h3 id="text-title" style="flex-shrink:0">{{ t.app_source_text }}</h3>
+    <div id="text-body" style="overflow-y:auto;margin-top:1rem;flex:1;font-size:0.85rem;color:#a0aec0;line-height:1.7;white-space:pre-wrap"></div>
+    <div class="modal-footer" style="flex-shrink:0">
+      <button class="btn-sm btn-ghost" onclick="closeText()">{{ t.close }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- Analysis modal -->
+<div class="overlay" id="analysis-overlay">
+  <div class="modal" style="max-width:680px;max-height:80vh;display:flex;flex-direction:column">
+    <h3 id="analysis-title" style="flex-shrink:0">{{ t.app_reasoning }}</h3>
+    <div id="analysis-body" style="overflow-y:auto;margin-top:1rem;flex:1"></div>
+    <div class="modal-footer" style="flex-shrink:0">
+      <button class="btn-sm btn-ghost" onclick="closeAnalysis()">{{ t.close }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pipeline modal -->
+<div class="overlay" id="pipeline-overlay">
+  <div class="modal">
+    <h3>{{ t.app_pipeline_modal }}</h3>
+    <textarea id="input-text" placeholder="{{ t.app_paste_text }}"></textarea>
+    <label class="file-upload-label">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      {{ t.app_upload_file }}
+      <input type="file" id="file-input" accept=".txt,.docx">
+    </label>
+    <div id="file-upload-name"></div>
+    <input type="text" id="map-title" placeholder="{{ t.app_map_title_ph }}">
+    <div id="course-row" style="display:none;margin-top:0.8rem">
+      <label style="font-size:0.75rem;color:#a0aec0;display:block;margin-bottom:0.3rem">{{ t.course }}</label>
+      <select id="course-select" style="width:100%;padding:0.5rem 0.7rem;background:#0f1117;border:1px solid #2d3148;border-radius:6px;color:#e2e8f0;font-size:0.85rem;outline:none"></select>
+    </div>
+    <div id="progress"></div>
+    <div class="modal-footer">
+      <button class="btn-sm btn-ghost" onclick="closePipeline()">{{ t.cancel }}</button>
+      <button class="btn-primary" id="run-btn" onclick="runPipeline()">{{ t.app_run_pipeline }}</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let _courses = [];
+  let _defaultCourseId = null;
+  let _courseName = {};
+  let _allMaps = [];
+
+  async function loadCourses() {
+    const res = await fetch('/api/courses');
+    _courses  = await res.json();
+    if (_courses.length === 1) _defaultCourseId = _courses[0].id;
+    _courses.forEach(c => _courseName[c.id] = c.name);
+  }
+
+  async function loadMaps() {
+    const res = await fetch('/api/maps');
+    _allMaps  = await res.json();
+
+    if (_courses.length > 1) {
+      const coursesInMaps = _courses.filter(c => _allMaps.some(m => m.course_id === c.id));
+      if (coursesInMaps.length > 0) {
+        const filterSel = document.getElementById('map-course-filter');
+        const current   = filterSel.value;
+        filterSel.innerHTML = `<option value="">${escHtml(T.app_all_courses)}</option>`
+          + coursesInMaps.map(c => `<option value="${c.id}"${current == c.id ? ' selected' : ''}>${escHtml(c.name)}</option>`).join('');
+        document.getElementById('map-filter-row').style.display = 'flex';
+      }
+    }
+
+    renderMaps(document.getElementById('map-course-filter')?.value || '');
+  }
+
+  function renderMaps(courseFilter) {
+    const maps = courseFilter
+      ? _allMaps.filter(m => m.course_id === parseInt(courseFilter))
+      : _allMaps;
+    const el = document.getElementById('map-list');
+    if (!maps.length) {
+      el.innerHTML = '<p class="empty-state">' + escHtml(T.app_no_maps) + '</p>';
+      return;
+    }
+    el.innerHTML = maps.map(m => `
+      <div class="map-item">
+        <a class="map-link" href="/map/${m.id}">
+          <div class="map-title">${escHtml(m.title)}</div>
+          <div class="map-meta">${m.course_id && _courseName[m.course_id] ? escHtml(_courseName[m.course_id]) + ' · ' : ''}${new Date(m.updated_at).toLocaleDateString()}</div>
+        </a>
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0">
+          ${m.has_source_text ? `<button class="btn-analysis" data-id="${m.id}" data-title="${escHtml(m.title)}" onclick="openText(this.dataset.id, this.dataset.title)">${escHtml(T.app_source_text)}</button>` : ''}
+          ${m.has_reasoning   ? `<button class="btn-analysis" data-id="${m.id}" data-title="${escHtml(m.title)}" onclick="openAnalysis(this.dataset.id, this.dataset.title)">${escHtml(T.app_reasoning)}</button>` : ''}
+          ${_courses.length > 0 ? `<select class="map-course-sel" onchange="moveMap(${m.id}, this.value)">
+            <option value=""${!m.course_id ? ' selected' : ''}>${escHtml(T.app_no_course)}</option>
+            ${_courses.map(c => `<option value="${c.id}"${m.course_id === c.id ? ' selected' : ''}>${escHtml(c.name)}</option>`).join('')}
+          </select>` : ''}
+          <a class="map-open" href="/map/${m.id}">${escHtml(T.app_open)}</a>
+          <button class="btn-delete" data-id="${m.id}" data-title="${escHtml(m.title)}" onclick="deleteMap(this.dataset.id, this.dataset.title)">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  loadCourses().then(loadMaps);
+
+  document.getElementById('file-input').addEventListener('change', async function () {
+    const file = this.files[0];
+    if (!file) return;
+    const nameEl = document.getElementById('file-upload-name');
+    nameEl.textContent = T.app_uploading;
+    nameEl.style.display = 'block';
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res  = await fetch('/api/extract_text', { method: 'POST', body: fd });
+      if (!res.ok) { nameEl.textContent = T.error + ': ' + (await res.json()).detail; nameEl.style.color = '#fc8181'; return; }
+      const data = await res.json();
+      document.getElementById('input-text').value = data.text;
+      nameEl.textContent = '✓ ' + file.name;
+      nameEl.style.color = '#48bb78';
+      const titleEl = document.getElementById('map-title');
+      if (!titleEl.value.trim()) titleEl.value = file.name.replace(/\.[^.]+$/, '');
+    } catch (e) {
+      nameEl.textContent = T.error;
+      nameEl.style.color = '#fc8181';
+    }
+  });
+
+  function openPipeline() {
+    if (_courses.length > 1) {
+      const sel = document.getElementById('course-select');
+      sel.innerHTML = `<option value="">${escHtml(T.app_no_course)}</option>`
+        + _courses.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+      document.getElementById('course-row').style.display = 'block';
+    }
+    document.getElementById('pipeline-overlay').classList.add('open');
+  }
+  function closePipeline() { document.getElementById('pipeline-overlay').classList.remove('open'); }
+
+  async function runPipeline() {
+    const text  = document.getElementById('input-text').value.trim();
+    const title = document.getElementById('map-title').value.trim() || 'Argument Map';
+    if (!text) return;
+
+    const btn      = document.getElementById('run-btn');
+    const progress = document.getElementById('progress');
+    btn.disabled    = true;
+    btn.textContent = T.app_running;
+    progress.style.display = 'block';
+    progress.innerHTML     = `<div class="spinner-row"><div class="spinner-ring"></div>${escHtml(T.app_preparing)}</div>`;
+
+    function addStep(name, reasoning, isError) {
+      const spinner = progress.querySelector('.spinner-row');
+      if (spinner) spinner.remove();
+      const entry = document.createElement('div');
+      entry.className = 'step-entry';
+      if (isError) {
+        entry.innerHTML = `<div class="step-error">✗ ${escHtml(name)}</div>`;
+      } else {
+        entry.innerHTML = `<div class="step-name">${escHtml(name)}</div>`
+          + (reasoning ? `<div class="step-reasoning">${escHtml(reasoning)}</div>` : '');
+        const next = document.createElement('div');
+        next.className = 'spinner-row';
+        next.innerHTML = `<div class="spinner-ring"></div><span>${escHtml(T.app_working)}</span>`;
+        progress.appendChild(entry);
+        progress.appendChild(next);
+        progress.scrollTop = progress.scrollHeight;
+        return;
+      }
+      progress.appendChild(entry);
+      progress.scrollTop = progress.scrollHeight;
+    }
+
+    const resp = await fetch('/api/pipeline/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, title, map_id: 'map-' + Date.now() }),
+    });
+
+    const reader       = resp.body.getReader();
+    const decoder      = new TextDecoder();
+    let mapData        = null;
+    let buffer         = '';
+    const reasoningLog = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const msg = JSON.parse(line.slice(6));
+        if (msg.error) { addStep(msg.error, null, true); btn.disabled = false; btn.textContent = T.app_run_pipeline; return; }
+        if (msg.done)  { mapData = msg.map; break; }
+        if (msg.step)  { reasoningLog.push({ step: msg.step, reasoning: msg.reasoning }); addStep(msg.step, msg.reasoning); }
+      }
+      if (mapData) break;
+    }
+
+    if (!mapData) { btn.disabled = false; btn.textContent = T.app_run_pipeline; return; }
+
+    const finalSpinner = progress.querySelector('.spinner-row');
+    if (finalSpinner) finalSpinner.remove();
+
+    const courseId = _courses.length === 1 ? _defaultCourseId
+                   : _courses.length  >  1 ? (parseInt(document.getElementById('course-select').value) || null)
+                   : null;
+    const save = await fetch('/api/maps', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, map_data: mapData, reasoning: reasoningLog, source_text: text, course_id: courseId }),
+    });
+    const { id } = await save.json();
+    window.location.href = '/map/' + id;
+  }
+
+  async function openText(mapId, title) {
+    document.getElementById('text-title').textContent = title + ' — ' + T.app_source_text;
+    document.getElementById('text-body').textContent  = T.loading;
+    document.getElementById('text-overlay').classList.add('open');
+    const res  = await fetch('/api/maps/' + mapId + '/source_text');
+    const data = await res.json();
+    document.getElementById('text-body').textContent = data.text || '';
+  }
+
+  function closeText() { document.getElementById('text-overlay').classList.remove('open'); }
+
+  async function openAnalysis(mapId, title) {
+    document.getElementById('analysis-title').textContent = title + ' — ' + T.app_reasoning;
+    document.getElementById('analysis-body').innerHTML = `<p style="color:#718096;font-size:0.82rem">${escHtml(T.loading)}</p>`;
+    document.getElementById('analysis-overlay').classList.add('open');
+    const res   = await fetch('/api/maps/' + mapId + '/reasoning');
+    const steps = await res.json();
+    document.getElementById('analysis-body').innerHTML = steps.filter(s => !s.step.includes('Step 4')).map(s => `
+      <div class="analysis-step">
+        <div class="analysis-step-name">${escHtml(s.step)}</div>
+        <div class="analysis-step-text">${escHtml(s.reasoning || '')}</div>
+      </div>
+    `).join('');
+  }
+
+  function closeAnalysis() { document.getElementById('analysis-overlay').classList.remove('open'); }
+
+  async function moveMap(id, courseId) {
+    await fetch('/api/maps/' + id + '/course', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ course_id: courseId ? parseInt(courseId) : null }),
+    });
+    const m = _allMaps.find(x => x.id === parseInt(id));
+    if (m) m.course_id = courseId ? parseInt(courseId) : null;
+    renderMaps(document.getElementById('map-course-filter')?.value || '');
+  }
+
+  async function deleteMap(id, title) {
+    if (!confirm(`"${title}"?`)) return;
+    await fetch('/api/maps/' + id, { method: 'DELETE' });
+    loadMaps();
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Change password ─────────────────────────────────────────────────────────
+  function openChangePw() {
+    document.getElementById('cpw-old').value = '';
+    document.getElementById('cpw-new').value = '';
+    document.getElementById('cpw-confirm').value = '';
+    document.getElementById('cpw-msg').textContent = '';
+    document.getElementById('cpw-msg').className = '';
+    document.getElementById('cpw-overlay').classList.add('open');
+    document.getElementById('cpw-old').focus();
+  }
+
+  function closeChangePw() {
+    document.getElementById('cpw-overlay').classList.remove('open');
+  }
+
+  async function submitChangePw() {
+    const oldPw  = document.getElementById('cpw-old').value;
+    const newPw  = document.getElementById('cpw-new').value;
+    const confirm = document.getElementById('cpw-confirm').value;
+    const msg    = document.getElementById('cpw-msg');
+    if (newPw !== confirm) {
+      msg.textContent = T.app_pw_mismatch;
+      msg.className = 'cpw-error';
+      return;
+    }
+    if (!newPw.trim()) return;
+    const btn = document.getElementById('cpw-submit');
+    btn.disabled = true;
+    const res = await fetch('/api/me/password', {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ old_password: oldPw, new_password: newPw })
+    });
+    btn.disabled = false;
+    if (res.ok) {
+      closeChangePw();
+    } else {
+      const err = await res.json();
+      msg.textContent = err.detail || T.error;
+      msg.className = 'cpw-error';
+    }
+  }
+</script>
+
+<!-- ── Change password modal ──────────────────────────────────────────────── -->
+<div class="overlay" id="cpw-overlay" onclick="if(event.target===this)closeChangePw()">
+  <div class="modal" style="max-width:400px;padding:1.8rem">
+    <h3>{{ t.app_change_pw_title }}</h3>
+    <div style="display:flex;flex-direction:column;gap:0.8rem;margin-bottom:1rem">
+      <div>
+        <label style="font-size:0.75rem;color:#a0aec0;display:block;margin-bottom:0.3rem">{{ t.app_pw_current }}</label>
+        <input type="password" id="cpw-old" style="margin-top:0" placeholder="••••••••">
+      </div>
+      <div>
+        <label style="font-size:0.75rem;color:#a0aec0;display:block;margin-bottom:0.3rem">{{ t.app_pw_new }}</label>
+        <input type="password" id="cpw-new" style="margin-top:0" placeholder="••••••••">
+      </div>
+      <div>
+        <label style="font-size:0.75rem;color:#a0aec0;display:block;margin-bottom:0.3rem">{{ t.app_pw_confirm }}</label>
+        <input type="password" id="cpw-confirm" style="margin-top:0" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')submitChangePw()">
+      </div>
+    </div>
+    <div id="cpw-msg" style="font-size:0.78rem;min-height:1.2em;margin-bottom:0.6rem"></div>
+    <div class="modal-footer" style="margin-top:0">
+      <button class="btn-sm btn-ghost" onclick="closeChangePw()">{{ t.cancel }}</button>
+      <button class="btn-primary" id="cpw-submit" onclick="submitChangePw()">{{ t.save }}</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  input[type="password"] {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    background: #0f1117;
+    border: 1px solid #2d3148;
+    border-radius: 6px;
+    color: #e2e8f0;
+    font-size: 0.85rem;
+    outline: none;
+  }
+  input[type="password"]:focus { border-color: #4a6fa5; }
+  .cpw-error { color: #fc8181; }
+</style>
+
+</body>
+</html>

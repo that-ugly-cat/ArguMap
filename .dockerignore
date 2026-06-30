@@ -1,0 +1,15 @@
+# Keep secrets and runtime state out of the build context / image layers.
+# The Dockerfile does `COPY . .`, so anything here would otherwise be baked in.
+.git
+.gitignore
+.dockerignore
+.env
+*.db
+*.sqlite
+*.sqlite3
+data/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+README.md
+DEPLOY.md

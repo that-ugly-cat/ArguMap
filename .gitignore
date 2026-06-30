@@ -1,0 +1,16 @@
+# Secrets — never commit
+.env
+
+# Databases / runtime data
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS
+.DS_Store

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'en' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ArguMap — {{ t.course }}</title>
+  <link rel="icon" type="image/png" href="/imgs/logo-automap-squared.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0f1117;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #e2e8f0;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.9rem 2rem;
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+    }
+
+    .header-left { display: flex; align-items: center; gap: 1rem; }
+    header h1 { font-size: 1.1rem; font-weight: 700; color: #fff; }
+    .header-sub { font-size: 0.78rem; color: #718096; }
+
+    .btn-sm {
+      padding: 0.35rem 0.8rem;
+      border-radius: 5px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-ghost   { background: transparent; color: #a0aec0; border: 1px solid #2d3148; }
+    .btn-ghost:hover { border-color: #4a6fa5; color: #e2e8f0; }
+    .btn-primary { background: #0a3c8a; color: #fff; border: 1px solid transparent; }
+    .btn-primary:hover { background: #0d4fa8; }
+    .btn-danger  { background: transparent; color: #fc8181; border: 1px solid #7b2020; font-size: 0.72rem; padding: 0.2rem 0.5rem; }
+    .btn-danger:hover { background: #2d1515; }
+
+    .btn-lang {
+      background: #0f1117;
+      color: #4a5568;
+      border: 1px solid #2d3148;
+      padding: 0.3rem 0.6rem;
+      border-radius: 5px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-lang:hover { color: #a0aec0; border-color: #4a5568; }
+
+    main { max-width: 1000px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+    .section { margin-bottom: 2.5rem; }
+
+    h2 {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #4a5568;
+      margin-bottom: 1rem;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 1.5rem;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+
+    th {
+      text-align: left;
+      padding: 0.5rem 0.8rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #4a5568;
+      border-bottom: 1px solid #2d3148;
+    }
+
+    td { padding: 0.65rem 0.8rem; border-bottom: 1px solid #1e2235; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1e2235; }
+
+    .add-row {
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+      margin-bottom: 1.2rem;
+    }
+
+    select, input[type="text"] {
+      padding: 0.5rem 0.7rem;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 5px;
+      color: #e2e8f0;
+      font-size: 0.83rem;
+      outline: none;
+    }
+    select:focus, input:focus { border-color: #4a6fa5; }
+    select option { background: #1a1d27; }
+
+    .msg { font-size: 0.78rem; margin-top: 0.6rem; color: #68d391; min-height: 1.2em; }
+    .msg.error { color: #fc8181; }
+
+    .empty { color: #4a5568; font-size: 0.82rem; padding: 0.8rem 0; }
+
+    a.open-link {
+      font-size: 0.78rem;
+      color: #4a6fa5;
+      text-decoration: none;
+    }
+    a.open-link:hover { color: #63b3ed; }
+  </style>
+</head>
+<body>
+
+<script>
+  const T        = {{ t | tojson }};
+  const LANG     = {{ lang | tojson }};
+</script>
+
+<header>
+  <div class="header-left">
+    <a href="/admin" class="btn-sm btn-ghost">{{ t.course_back_admin }}</a>
+    <h1 id="course-name">{{ t.loading }}</h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <select class="btn-lang" onchange="location='/lang/'+this.value+'?next=/admin/courses/{{ course_id }}'">
+      <option value="en"{% if lang == 'en' %} selected{% endif %}>EN</option>
+      <option value="it"{% if lang == 'it' %} selected{% endif %}>IT</option>
+      <option value="de"{% if lang == 'de' %} selected{% endif %}>DE</option>
+    </select>
+    {% if can_admin %}
+    <button class="btn-danger" onclick="deleteCourse()">{{ t.course_delete }}</button>
+    {% endif %}
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Teachers ─────────────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>{{ t.course_teachers }}</h2>
+    <div class="card">
+
+      {% if can_admin %}
+      <div class="add-row">
+        <select id="teacher-select" style="min-width:220px">
+          <option value="">{{ t.course_select_user }}</option>
+        </select>
+        <button class="btn-sm btn-primary" onclick="addTeacher()">{{ t.add }}</button>
+      </div>
+      {% endif %}
+
+      <div class="msg" id="teachers-msg"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>{{ t.name }}</th>
+            <th>{{ t.email }}</th>
+            {% if can_admin %}<th></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody id="teachers-tbody">
+          <tr><td colspan="{% if can_admin %}3{% else %}2{% endif %}" class="empty">{{ t.loading }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Students ──────────────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>{{ t.course_students }}</h2>
+    <div class="card">
+
+      {% if can_admin %}
+      <div class="add-row">
+        <select id="student-select" style="min-width:220px">
+          <option value="">{{ t.course_select_user }}</option>
+        </select>
+        <button class="btn-sm btn-primary" onclick="addStudent()">{{ t.add }}</button>
+      </div>
+      {% endif %}
+
+      <div class="msg" id="students-msg"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>{{ t.name }}</th>
+            <th>{{ t.email }}</th>
+            {% if can_admin %}<th></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody id="students-tbody">
+          <tr><td colspan="{% if can_admin %}3{% else %}2{% endif %}" class="empty">{{ t.loading }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Maps ──────────────────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>{{ t.course_maps }}</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>{{ t.course_student_col }}</th>
+            <th>{{ t.course_title_col }}</th>
+            <th>{{ t.course_updated_col }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="maps-tbody">
+          <tr><td colspan="4" class="empty">{{ t.loading }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  const COURSE_ID = {{ course_id }};
+  const CAN_ADMIN = {{ 'true' if can_admin else 'false' }};
+  const _dateLocale = LANG === 'it' ? 'it-IT' : 'en-GB';
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function showMsg(id, text, error=false) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'msg' + (error ? ' error' : '');
+    setTimeout(() => el.textContent = '', 3000);
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString(_dateLocale, { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  // ── Course details ─────────────────────────────────────────────────────────
+  let enrolledIds = new Set();
+  let teacherIds  = new Set();
+  let allUsers    = [];
+
+  async function loadAllUsers() {
+    if (allUsers.length) return;
+    const res  = await fetch('/api/admin/users');
+    const data = await res.json();
+    if (Array.isArray(data)) allUsers = data;
+  }
+
+  async function loadCourse() {
+    const res    = await fetch(`/api/courses/${COURSE_ID}`);
+    const course = await res.json();
+
+    document.getElementById('course-name').textContent = course.name;
+    document.title = 'ArguMap — ' + course.name;
+
+    if (CAN_ADMIN) await loadAllUsers();
+
+    teacherIds  = new Set(course.teachers.map(t => t.id));
+    enrolledIds = new Set(course.students.map(s => s.id));
+
+    renderTeachers(course.teachers);
+    renderStudents(course.students);
+
+    if (CAN_ADMIN) {
+      refreshTeacherSelect();
+      refreshStudentSelect();
+    }
+  }
+
+  // ── Teachers ───────────────────────────────────────────────────────────────
+  function renderTeachers(teachers) {
+    const cols  = CAN_ADMIN ? 3 : 2;
+    const tbody = document.getElementById('teachers-tbody');
+    if (!teachers.length) {
+      tbody.innerHTML = `<tr><td colspan="${cols}" class="empty">${escHtml(T.course_no_teachers)}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = teachers.map(t => `
+      <tr>
+        <td>${escHtml(t.name || '—')}</td>
+        <td style="color:#718096">${escHtml(t.email)}</td>
+        ${CAN_ADMIN ? `<td><button class="btn-danger" onclick="removeTeacher(${t.id})">${escHtml(T.remove)}</button></td>` : ''}
+      </tr>
+    `).join('');
+  }
+
+  function refreshTeacherSelect() {
+    const sel = document.getElementById('teacher-select');
+    if (!sel) return;
+    sel.innerHTML = `<option value="">${escHtml(T.course_select_user)}</option>`;
+    allUsers
+      .filter(u => (u.role === 'teacher' || u.role === 'admin') && !teacherIds.has(u.id))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = `${u.name || u.email} (${u.email})`;
+        sel.appendChild(opt);
+      });
+  }
+
+  async function addTeacher() {
+    const uid = document.getElementById('teacher-select').value;
+    if (!uid) return;
+    const res = await fetch(`/api/courses/${COURSE_ID}/teachers/${uid}`, { method: 'POST' });
+    if (res.ok) {
+      showMsg('teachers-msg', T.course_teacher_add);
+      loadCourse();
+    } else {
+      const err = await res.json();
+      showMsg('teachers-msg', err.detail || T.error, true);
+    }
+  }
+
+  async function removeTeacher(uid) {
+    const res = await fetch(`/api/courses/${COURSE_ID}/teachers/${uid}`, { method: 'DELETE' });
+    if (res.ok) {
+      showMsg('teachers-msg', T.course_teacher_rm);
+      loadCourse();
+    } else {
+      const err = await res.json();
+      showMsg('teachers-msg', err.detail || T.error, true);
+    }
+  }
+
+  // ── Students ───────────────────────────────────────────────────────────────
+  function renderStudents(students) {
+    const cols  = CAN_ADMIN ? 3 : 2;
+    const tbody = document.getElementById('students-tbody');
+    if (!students.length) {
+      tbody.innerHTML = `<tr><td colspan="${cols}" class="empty">${escHtml(T.course_no_students)}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = students.map(s => `
+      <tr>
+        <td>${escHtml(s.name || '—')}</td>
+        <td style="color:#718096">${escHtml(s.email)}</td>
+        ${CAN_ADMIN ? `<td><button class="btn-danger" onclick="removeStudent(${s.id})">${escHtml(T.remove)}</button></td>` : ''}
+      </tr>
+    `).join('');
+  }
+
+  function refreshStudentSelect() {
+    const sel = document.getElementById('student-select');
+    if (!sel) return;
+    sel.innerHTML = `<option value="">${escHtml(T.course_select_user)}</option>`;
+    allUsers
+      .filter(u => !enrolledIds.has(u.id))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = `${u.name || u.email} (${u.email})`;
+        sel.appendChild(opt);
+      });
+  }
+
+  async function addStudent() {
+    const uid = document.getElementById('student-select').value;
+    if (!uid) return;
+    const res = await fetch(`/api/courses/${COURSE_ID}/students/${uid}`, { method: 'POST' });
+    if (res.ok) {
+      showMsg('students-msg', T.course_student_add);
+      loadCourse();
+    } else {
+      const err = await res.json();
+      showMsg('students-msg', err.detail || T.error, true);
+    }
+  }
+
+  async function removeStudent(uid) {
+    const res = await fetch(`/api/courses/${COURSE_ID}/students/${uid}`, { method: 'DELETE' });
+    if (res.ok) {
+      showMsg('students-msg', T.course_student_rm);
+      loadCourse();
+    } else {
+      const err = await res.json();
+      showMsg('students-msg', err.detail || T.error, true);
+    }
+  }
+
+  // ── Maps ───────────────────────────────────────────────────────────────────
+  async function loadMaps() {
+    const res   = await fetch(`/api/courses/${COURSE_ID}/maps`);
+    const maps  = await res.json();
+    const tbody = document.getElementById('maps-tbody');
+    if (!maps.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="empty">${escHtml(T.course_no_maps)}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = maps.map(m => `
+      <tr>
+        <td>${escHtml(m.user || '—')}</td>
+        <td>${escHtml(m.title)}</td>
+        <td style="color:#718096">${fmtDate(m.updated_at)}</td>
+        <td><a class="open-link" href="/map/${m.id}">${escHtml(T.course_open)}</a></td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Delete course ──────────────────────────────────────────────────────────
+  async function deleteCourse() {
+    const n    = enrolledIds.size;
+    const name = document.getElementById('course-name').textContent;
+    if (n > 0) {
+      const msg1 = T.course_confirm_busy.replace('{n}', n);
+      if (!confirm(msg1)) return;
+      if (!confirm(T.course_confirm_sure)) return;
+    } else {
+      const msg2 = T.course_confirm_delete.replace('{name}', name);
+      if (!confirm(msg2)) return;
+    }
+    const res = await fetch(`/api/courses/${COURSE_ID}`, { method: 'DELETE' });
+    if (res.ok) {
+      window.location.href = '/admin';
+    } else {
+      const err = await res.json();
+      showMsg('students-msg', err.detail || T.error, true);
+    }
+  }
+
+  loadCourse();
+  loadMaps();
+</script>
+
+</body>
+</html>

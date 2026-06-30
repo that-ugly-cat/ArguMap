@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'en' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ t.login_page_title }}</title>
+  <link rel="icon" type="image/png" href="/imgs/logo-automap-squared.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      background: #0f1117;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #e2e8f0;
+    }
+
+    .landing {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 4rem 4rem;
+      border-right: 1px solid #2d3148;
+      min-width: 0;
+    }
+
+    .logo {
+      margin-bottom: 1.2rem;
+    }
+    .logo img {
+      height: 80px;
+      width: auto;
+    }
+
+    .tagline {
+      font-size: 1rem;
+      color: #a0aec0;
+      line-height: 1.75;
+      margin-bottom: 2.5rem;
+      max-width: 560px;
+    }
+
+    .tagline em {
+      color: #e2e8f0;
+      font-style: normal;
+      font-weight: 500;
+    }
+
+    .cards-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #4a5568;
+      margin-bottom: 1rem;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.8rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .feature-card {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 1.2rem 1.1rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+
+    .feature-card:hover {
+      border-color: #4a6fa5;
+      background: #1e2235;
+    }
+
+    .feature-card .card-icon { font-size: 1.4rem; margin-bottom: 0.55rem; }
+
+    .feature-card h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      margin-bottom: 0.35rem;
+    }
+
+    .feature-card p {
+      font-size: 0.76rem;
+      color: #718096;
+      line-height: 1.55;
+    }
+
+    .feature-card .more {
+      font-size: 0.7rem;
+      color: #4a6fa5;
+      margin-top: 0.6rem;
+    }
+
+    .credits {
+      font-size: 0.72rem;
+      color: #4a5568;
+      line-height: 1.6;
+    }
+
+    .credits a { color: #4a6fa5; text-decoration: none; }
+    .credits a:hover { color: #63b3ed; }
+
+    .login-panel {
+      width: 340px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 2.5rem;
+      position: relative;
+    }
+
+    .login-card { width: 100%; }
+
+    .login-card .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.3rem;
+    }
+
+    .login-card .card-sub {
+      font-size: 0.78rem;
+      color: #718096;
+      margin-bottom: 2rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      color: #a0aec0;
+      margin-bottom: 0.35rem;
+      margin-top: 1rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus { border-color: #4a6fa5; }
+
+    .btn-submit {
+      width: 100%;
+      margin-top: 1.6rem;
+      padding: 0.65rem;
+      background: #0a3c8a;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-submit:hover { background: #0d4fa8; }
+
+    .error {
+      margin-top: 1rem;
+      padding: 0.6rem 0.8rem;
+      background: #2d1515;
+      border: 1px solid #7b2020;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      color: #fc8181;
+    }
+
+    .lang-toggle {
+      position: absolute;
+      top: 1rem;
+      right: 1.2rem;
+      font-size: 0.72rem;
+      color: #4a5568;
+      background: #0f1117;
+      border: none;
+      cursor: pointer;
+    }
+    .lang-toggle:hover { color: #a0aec0; }
+
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 520px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 1.4rem;
+    }
+
+    .modal-icon { font-size: 1.6rem; margin-right: 0.8rem; flex-shrink: 0; }
+
+    .modal-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.2rem;
+    }
+
+    .modal-subtitle {
+      font-size: 0.78rem;
+      color: #718096;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: #4a5568;
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .modal-close:hover { color: #a0aec0; background: none; }
+
+    .modal-section { margin-bottom: 1.2rem; }
+
+    .modal-section h4 {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #4a5568;
+      margin-bottom: 0.6rem;
+    }
+
+    .modal-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .modal-list li {
+      font-size: 0.82rem;
+      color: #a0aec0;
+      line-height: 1.55;
+      padding-left: 1.1rem;
+      position: relative;
+    }
+
+    .modal-list li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: #4a6fa5;
+      font-size: 0.78rem;
+    }
+
+    .node-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.4rem;
+    }
+
+    .node-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.75rem;
+      color: #a0aec0;
+      padding: 0.3rem 0.5rem;
+      background: #0f1117;
+      border-radius: 5px;
+    }
+
+    .node-chip .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 800px) {
+      body { flex-direction: column; }
+      .landing {
+        border-right: none;
+        border-bottom: 1px solid #2d3148;
+        padding: 2.5rem 1.5rem;
+      }
+      .login-panel { width: 100%; padding: 2rem 1.5rem; }
+      .cards { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 480px) {
+      .cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Landing ── -->
+  <div class="landing">
+    <div class="logo"><img src="/imgs/logo-automap-extended.png" alt="ArguMap"></div>
+    <p class="tagline">
+      {{ t.login_tagline }}
+    </p>
+
+    <div class="cards-label">{{ t.login_what_you_can }}</div>
+    <div class="cards">
+
+      <div class="feature-card" onclick="openModal('modal-auto')">
+        <div class="card-icon">⚡</div>
+        <h3>{{ t.card_auto_title }}</h3>
+        <p>{{ t.card_auto_desc }}</p>
+        <div class="more">{{ t.login_learn_more }}</div>
+      </div>
+
+      <div class="feature-card" onclick="openModal('modal-manual')">
+        <div class="card-icon">✏️</div>
+        <h3>{{ t.card_manual_title }}</h3>
+        <p>{{ t.card_manual_desc }}</p>
+        <div class="more">{{ t.login_learn_more }}</div>
+      </div>
+
+      <div class="feature-card" onclick="openModal('modal-explore')">
+        <div class="card-icon">🗺️</div>
+        <h3>{{ t.card_explore_title }}</h3>
+        <p>{{ t.card_explore_desc }}</p>
+        <div class="more">{{ t.login_learn_more }}</div>
+      </div>
+
+      <div class="feature-card" onclick="openModal('modal-debate')">
+        <div class="card-icon">💬</div>
+        <h3>{{ t.card_debate_title }}</h3>
+        <p>{{ t.card_debate_desc }}</p>
+        <div class="more">{{ t.login_learn_more }}</div>
+      </div>
+
+    </div>
+
+    <div style="margin-bottom:1rem">
+      <a href="/docs/user-guide" target="_blank"
+         style="font-size:0.82rem;color:#a0aec0;text-decoration:none;border:1px solid #2d3148;border-radius:5px;padding:0.3rem 0.75rem;display:inline-block">
+        {{ t.docs_user_guide }} →
+      </a>
+    </div>
+    <div class="credits" style="margin-top:0">
+      Developed by <a href="https://www.ibme.uzh.ch/en/Biomedical-Ethics/Team/Research-Fellows/Giovanni-Spitale.html" target="_blank">Giovanni Spitale</a>
+      — ITE Lab, Institute of Biomedical Ethics, University of Zurich
+    </div>
+  </div>
+
+  <!-- ── Login ── -->
+  <div class="login-panel">
+    <select class="lang-toggle" onchange="location='/lang/'+this.value+'?next=/login'">
+      <option value="en"{% if lang == 'en' %} selected{% endif %}>EN</option>
+      <option value="it"{% if lang == 'it' %} selected{% endif %}>IT</option>
+      <option value="de"{% if lang == 'de' %} selected{% endif %}>DE</option>
+    </select>
+    <div class="login-card">
+      <div class="card-title">{{ t.login_title }}</div>
+      <div class="card-sub">{{ t.login_sub }}</div>
+
+      <form method="post" action="/login">
+        <label for="email">{{ t.email }}</label>
+        <input type="email" id="email" name="email" autocomplete="email" required autofocus>
+
+        <label for="password">{{ t.password }}</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+
+        <button type="submit" class="btn-submit">{{ t.sign_in }}</button>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: Automatic analysis ── -->
+  <div class="overlay" id="modal-auto">
+    <div class="modal">
+      <div class="modal-header">
+        <div style="display:flex;align-items:flex-start;gap:0.8rem">
+          <div class="modal-icon">⚡</div>
+          <div>
+            <div class="modal-title">{{ t.modal_auto_title }}</div>
+            <div class="modal-subtitle">{{ t.modal_auto_sub }}</div>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-auto')">✕</button>
+      </div>
+
+      <div class="modal-section">
+        <h4>{{ t.modal_auto_h1 }}</h4>
+        <ul class="modal-list">
+          <li>{{ t.modal_auto_l1 }}</li>
+          <li>{{ t.modal_auto_l2 }}</li>
+          <li>{{ t.modal_auto_l3 }}</li>
+          <li>{{ t.modal_auto_l4 }}</li>
+        </ul>
+      </div>
+
+      <div class="modal-section">
+        <h4>{{ t.modal_auto_h2 }}</h4>
+        <ul class="modal-list">
+          <li><strong style="color:#e2e8f0">{{ t.modal_auto_a1_key }}</strong> — {{ t.modal_auto_a1 }}</li>
+          <li><strong style="color:#e2e8f0">{{ t.modal_auto_a2_key }}</strong> — {{ t.modal_auto_a2 }}</li>
+          <li><strong style="color:#e2e8f0">{{ t.modal_auto_a3_key }}</strong> — {{ t.modal_auto_a3 }}</li>
+        </ul>
+      </div>
+
+      <div class="modal-section">
+        <h4>{{ t.modal_auto_h3 }}</h4>
+        <div class="node-grid">
+          <div class="node-chip"><div class="dot" style="background:#0a3c8a"></div>{{ t.nt_claim }}</div>
+          <div class="node-chip"><div class="dot" style="background:#a88614"></div>{{ t.nt_normative }}</div>
+          <div class="node-chip"><div class="dot" style="background:#630541"></div>{{ t.nt_empirical }}</div>
+          <div class="node-chip"><div class="dot" style="background:#a3b51b"></div>{{ t.nt_metaphysical }}</div>
+          <div class="node-chip"><div class="dot" style="background:#1683ab"></div>{{ t.nt_intermediate }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Manual construction ── -->
+  <div class="overlay" id="modal-manual">
+    <div class="modal">
+      <div class="modal-header">
+        <div style="display:flex;align-items:flex-start;gap:0.8rem">
+          <div class="modal-icon">✏️</div>
+          <div>
+            <div class="modal-title">{{ t.modal_manual_title }}</div>
+            <div class="modal-subtitle">{{ t.modal_manual_sub }}</div>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-manual')">✕</button>
+      </div>
+
+      <div class="modal-section">
+        <h4>{{ t.modal_manual_h1 }}</h4>
+        <ul class="modal-list">
+          <li>{{ t.modal_manual_l1 }}</li>
+          <li>{{ t.modal_manual_l2 }}</li>
+          <li>{{ t.modal_manual_l3_pre }} <strong style="color:#e2e8f0">{{ t.modal_manual_l3_em }}</strong> <kbd style="background:#0f1117;padding:0 3px;border-radius:3px;font-size:0.78rem">C</kbd> {{ t.modal_manual_l3_suf }}</li>
+          <li>{{ t.modal_manual_l4 }}</li>
+        </ul>
+      </div>
+
+      <div class="modal-section">
+        <h4>{{ t.modal_manual_h2 }}</h4>
+        <ul class="modal-list">
+          <li>{{ t.modal_manual_e1_r }} / {{ t.modal_manual_e1_ir }}</li>
+          <li>{{ t.modal_manual_e2 }}</li>
+          <li>{{ t.modal_manual_e3_s }} <strong style="color:#e2e8f0">{{ t.modal_manual_e3_str }}</strong> {{ t.modal_manual_e3_end }}</li>
+          <li><strong style="color:#e2e8f0">{{ t.modal_manual_e3_key }}</strong> {{ t.modal_manual_e3 }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Explore & export ── -->
+  <div class="overlay" id="modal-explore">
+    <div class="modal">
+      <div class="modal-header">
+        <div style="display:flex;align-items:flex-start;gap:0.8rem">
+          <div class="modal-icon">🗺️</div>
+          <div>
+            <div class="modal-title">{{ t.modal_explore_title }}</div>
+            <div class="modal-subtitle">{{ t.modal_explore_sub }}</div>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-explore')">✕</button>
+      </div>
+
+      <div class="modal-section">
+        <h4>{{ t.modal_explore_h1 }}</h4>
+        <ul class="modal-list">
+          <li><strong style="color:#e2e8f0">{{ t.modal_explore_l1_k }}</strong> {{ t.modal_explore_l1 }}</li>
+          <li>{{ t.modal_explore_l2 }}</li>
+          <li>{{ t.modal_explore_l3 }}</li>
+          <li>{{ t.modal_explore_l4 }}</li>
+        </ul>
+      </div>
+
+      <div class="modal-section">
+        <h4>{{ t.modal_explore_h2 }}</h4>
+        <ul class="modal-list">
+          <li>{{ t.modal_explore_e1 }}</li>
+          <li>{{ t.modal_explore_e2 }}</li>
+          <li>{{ t.modal_explore_e3 }}</li>
+        </ul>
+      </div>
+
+      <div class="modal-section">
+        <h4>{{ t.modal_explore_h3 }}</h4>
+        <ul class="modal-list">
+          <li><strong style="color:#e2e8f0">{{ t.modal_explore_x1_k }}</strong> {{ t.modal_explore_x1 }}</li>
+          <li><strong style="color:#e2e8f0">{{ t.modal_explore_x2_k1 }}</strong> {{ t.modal_explore_x2 }} <strong style="color:#e2e8f0">{{ t.modal_explore_x2_k2 }}</strong> {{ t.modal_explore_x2_e }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Debate-A-Bot ── -->
+  <div class="overlay" id="modal-debate">
+    <div class="modal">
+      <div class="modal-header">
+        <div style="display:flex;align-items:flex-start;gap:0.8rem">
+          <div class="modal-icon">💬</div>
+          <div>
+            <div class="modal-title">{{ t.modal_debate_title }}</div>
+            <div class="modal-subtitle">{{ t.modal_debate_sub }}</div>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-debate')">✕</button>
+      </div>
+
+      <div class="modal-section">
+        <h4>{{ t.modal_debate_h1 }}</h4>
+        <ul class="modal-list">
+          <li>{{ t.modal_debate_l1 }}</li>
+          <li>{{ t.modal_debate_l2 }}</li>
+          <li>{{ t.modal_debate_l3 }}</li>
+        </ul>
+      </div>
+
+      <div class="modal-section">
+        <h4>{{ t.modal_debate_h2 }}</h4>
+        <ul class="modal-list">
+          <li>{{ t.modal_debate_d1 }}</li>
+          <li>{{ t.modal_debate_d2 }}</li>
+          <li>{{ t.modal_debate_d3 }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openModal(id)  { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    document.querySelectorAll('.overlay').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        if (e.target === el) el.classList.remove('open');
+      });
+    });
+  </script>
+
+</body>
+</html>

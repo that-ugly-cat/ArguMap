@@ -417,6 +417,11 @@ _HTML = """\
     .g-type-btn[data-type="metaphysical_commitment"] { background: #a3b51b; }
     .g-type-desc { font-size: 10px; color: #4a5568; line-height: 1.45; margin: -2px 0 10px; padding: 0 2px; }
     .g-type-desc .g-ex { color: #718096; font-style: italic; display: block; margin-top: 3px; }
+    .g-opt-btn { display: block; width: 100%; text-align: left; border: 1px solid #cbd5e0;
+      border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; cursor: pointer;
+      background: white; color: #2d3748; font-size: 11px; line-height: 1.4; }
+    .g-opt-btn:hover { border-color: #63b3ed; }
+    .g-opt-btn.sel { border-color: #2980b9; background: #ebf5fb; font-weight: 600; }
     .g-chips { display: flex; gap: 8px; margin-bottom: 12px; }
     .g-chip { flex: 1; font-size: 10px; text-align: center; padding: 5px 4px; border-radius: 5px;
       border: 1px solid #e2e8f0; background: white; color: #a0aec0; }
@@ -1770,7 +1775,18 @@ function handleConnectClick(node) {
 // least one empirical and one normative premise. `direction` is reserved so a
 // bottom-up variant can reuse this engine later.
 var _guided = { active: false, direction: 'top_down', phase: 'idle',
-                targetId: null, queue: [], round: [], selType: null };
+                targetId: null, queue: [], round: [], selType: null, selOption: null };
+
+// Template choice-slots (#5): {node_type: {options: [...], correct: idx}}, applied
+// when justifying the claim. Empty {} for non-template maps.
+var TEMPLATE_SLOTS = AUTOMAP_SLOTS_JSON;
+function _guidedSlotFor(type) {
+  if (!TEMPLATE_SLOTS || !TEMPLATE_SLOTS[type]) return null;
+  var node = _guided.targetId ? graph.getCellById(_guided.targetId) : null;
+  if (!node || (node.getData() || {}).type !== 'claim') return null;
+  var slot = TEMPLATE_SLOTS[type];
+  return (slot.options && slot.options.length) ? slot : null;
+}
 
 // Order shown in the picker. Descriptions reuse the help-modal x6_nt_desc_* keys;
 // examples are guided-specific. `leaf:false` means the type queues for justification.
@@ -1891,23 +1907,36 @@ function guidedStartClaim() {
 
 function guidedPickType(type) {
   _guided.selType = (_guided.selType === type) ? null : type;
+  _guided.selOption = null;
   renderGuided();
   var c = document.getElementById('g-content-input');
   if (c) c.focus();
 }
 
+function guidedPickOption(oi) { _guided.selOption = oi; renderGuided(); }
+
 function guidedAddSupport() {
   if (!_guided.selType) return;
-  var ci  = document.getElementById('g-content-input');
-  var ni  = document.getElementById('g-notes-input');
-  var txt = ((ci && ci.value) || '').trim();
-  if (!txt) { if (ci) ci.focus(); return; }
+  var slot = _guidedSlotFor(_guided.selType);
+  var txt, notes = '';
+  if (slot) {
+    // Choice-slot: insert the picked preset option.
+    if (_guided.selOption === null || _guided.selOption === undefined) return;
+    txt = slot.options[_guided.selOption];
+  } else {
+    var ci = document.getElementById('g-content-input');
+    var ni = document.getElementById('g-notes-input');
+    txt = ((ci && ci.value) || '').trim();
+    notes = ((ni && ni.value) || '').trim();
+    if (!txt) { if (ci) ci.focus(); return; }
+  }
   _pushUndo();
-  var node = _guidedAddNode(_guided.selType, txt, ((ni && ni.value) || '').trim(), _guided.round.length + 1);
+  var node = _guidedAddNode(_guided.selType, txt, notes, _guided.round.length + 1);
   _guidedAddEdge(node.id, _guided.targetId);
   _guided.round.push({ id: node.id, type: _guided.selType, content: txt });
   if (_guided.selType === 'intermediate_conclusion') _guided.queue.push(node.id);
   _guided.selType = null;
+  _guided.selOption = null;
   renderGuided();
 }
 
@@ -2027,9 +2056,21 @@ function renderGuided() {
       if (sel) {
         html += '<div class="g-type-desc">' + escHtml(T[tp.desc] || '') +
                 '<span class="g-ex">' + escHtml(T[tp.ex] || '') + '</span></div>';
-        html += '<textarea id="g-content-input" rows="2" placeholder="' + escAttr(T.x6_guided_content_ph) + '"></textarea>';
-        html += '<textarea id="g-notes-input" rows="1" placeholder="' + escAttr(T.x6_guided_notes_ph) + '"></textarea>';
-        html += '<button class="g-btn g-btn-primary" onclick="guidedAddSupport()">' + escHtml(T.x6_guided_add_btn) + '</button>';
+        var slot = _guidedSlotFor(tp.type);
+        if (slot) {
+          html += '<div class="g-help" style="margin-bottom:6px">' + escHtml(T.x6_guided_pick_option) + '</div>';
+          slot.options.forEach(function(opt, oi) {
+            var osel = _guided.selOption === oi;
+            html += '<button class="g-opt-btn' + (osel ? ' sel' : '') + '" data-oi="' + oi +
+                    '" onclick="guidedPickOption(parseInt(this.dataset.oi))">' + escHtml(opt) + '</button>';
+          });
+          html += '<button class="g-btn g-btn-primary" onclick="guidedAddSupport()"' +
+                  (_guided.selOption === null ? ' disabled' : '') + '>' + escHtml(T.x6_guided_add_btn) + '</button>';
+        } else {
+          html += '<textarea id="g-content-input" rows="2" placeholder="' + escAttr(T.x6_guided_content_ph) + '"></textarea>';
+          html += '<textarea id="g-notes-input" rows="1" placeholder="' + escAttr(T.x6_guided_notes_ph) + '"></textarea>';
+          html += '<button class="g-btn g-btn-primary" onclick="guidedAddSupport()">' + escHtml(T.x6_guided_add_btn) + '</button>';
+        }
       }
     });
     html += '<div class="g-card" style="margin-top:12px"><h3>' + escHtml(T.x6_guided_added) + '</h3>';
@@ -2411,13 +2452,14 @@ if (typeof GUIDED_START !== 'undefined' && GUIDED_START) setTimeout(startGuided,
 # Public API
 # ---------------------------------------------------------------------------
 
-def generate_html_x6(argmap: Union[ArgumentMapV2, dict], output_path: Optional[str] = None, return_html: bool = False, lang: str = 'en', guided: bool = False) -> str:
+def generate_html_x6(argmap: Union[ArgumentMapV2, dict], output_path: Optional[str] = None, return_html: bool = False, lang: str = 'en', guided: bool = False, slots: Optional[dict] = None) -> str:
     """Generate a standalone interactive X6 HTML visualizer.
 
     If return_html=True, always returns the HTML string (ignores output_path).
     If output_path is set and return_html=False, writes to file and returns the string.
     lang: ISO language code ('en' or 'it'); controls UI string translations.
     guided: when True, the viewer starts in guided-construction mode.
+    slots: optional template choice-slots {node_type: {options, correct}} for guided mode (#5).
     """
     if isinstance(argmap, ArgumentMapV2):
         argmap = argmap.model_dump()
@@ -2445,6 +2487,7 @@ def generate_html_x6(argmap: Union[ArgumentMapV2, dict], output_path: Optional[s
               .replace("AUTOMAP_LAYOUT_JSON",  json.dumps(layout,          ensure_ascii=False))
               .replace("AUTOMAP_T_JSON",        json.dumps(t,              ensure_ascii=False))
               .replace("AUTOMAP_GUIDED",        "true" if guided else "false")
+              .replace("AUTOMAP_SLOTS_JSON",    json.dumps(slots or {}, ensure_ascii=False))
               .replace("AUTOMAP_LANG",          lang)
               .replace("AUTOMAP_TITLE",         title))
     if output_path and not return_html:

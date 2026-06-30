@@ -139,6 +139,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'tmpl_copied':         'Copied',
         'tmpl_delete':         'Delete',
         'tmpl_confirm_delete': 'Delete this template? Maps students already created are kept.',
+        'tmpl_opt_emp':        'Empirical premise — preset options (one per line)',
+        'tmpl_opt_norm':       'Normative premise — preset options (one per line)',
+        'tmpl_opt_hint':       'Optional. If set, students pick from these instead of writing the premise freely.',
         'app_my_maps':         'My maps',
         'app_no_maps':         'No maps yet.',
         'app_source_text':     'Source text',
@@ -353,6 +356,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_guided_fill_prompt':  'Fill in the blank to complete the claim:',
         'x6_guided_fill_ph':      'your criterion',
         'x6_guided_fill_btn':     'Set claim',
+        'x6_guided_pick_option':  'Pick the option that makes the argument valid:',
 
         # ── Map viewer (web UI injected by _inject_web_ui) ────────────────────
         'viewer_back':          '← Dashboard',
@@ -564,6 +568,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'tmpl_copied':         'Copiato',
         'tmpl_delete':         'Elimina',
         'tmpl_confirm_delete': 'Eliminare questo template? Le mappe già create dagli studenti restano.',
+        'tmpl_opt_emp':        'Premessa empirica — opzioni preimpostate (una per riga)',
+        'tmpl_opt_norm':       'Premessa normativa — opzioni preimpostate (una per riga)',
+        'tmpl_opt_hint':       'Opzionale. Se impostate, lo studente sceglie tra queste invece di scrivere la premessa.',
         'app_my_maps':         'Le mie mappe',
         'app_no_maps':         'Nessuna mappa ancora.',
         'app_source_text':     'Testo sorgente',
@@ -778,6 +785,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_guided_fill_prompt':  'Riempi lo spazio per completare il claim:',
         'x6_guided_fill_ph':      'il tuo criterio',
         'x6_guided_fill_btn':     'Imposta il claim',
+        'x6_guided_pick_option':  'Scegli l’opzione che rende valido l’argomento:',
 
         # node type labels
         'nt_claim':            'Claim (tesi)',
@@ -989,6 +997,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'tmpl_copied':         'Kopiert',
         'tmpl_delete':         'Löschen',
         'tmpl_confirm_delete': 'Diese Vorlage löschen? Bereits erstellte Studierenden-Karten bleiben erhalten.',
+        'tmpl_opt_emp':        'Empirische Prämisse — voreingestellte Optionen (eine pro Zeile)',
+        'tmpl_opt_norm':       'Normative Prämisse — voreingestellte Optionen (eine pro Zeile)',
+        'tmpl_opt_hint':       'Optional. Wenn gesetzt, wählen Studierende aus diesen, statt die Prämisse frei zu schreiben.',
         'app_my_maps':         'Meine Karten',
         'app_no_maps':         'Noch keine Karten.',
         'app_source_text':     'Quelltext',
@@ -1203,6 +1214,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_guided_fill_prompt':  'Füllen Sie die Lücke, um die These zu vervollständigen:',
         'x6_guided_fill_ph':      'Ihr Kriterium',
         'x6_guided_fill_btn':     'These setzen',
+        'x6_guided_pick_option':  'Wählen Sie die Option, die das Argument gültig macht:',
 
         # ── Map viewer (web UI injected by _inject_web_ui) ────────────────────
         'viewer_back':          '← Dashboard',

@@ -78,6 +78,11 @@
     <label>{{ t.tmpl_claim_label }}</label>
     <textarea id="f-claim"></textarea>
     <div class="hint">{{ t.tmpl_claim_hint }}</div>
+    <label>{{ t.tmpl_opt_emp }}</label>
+    <textarea id="f-emp-opts" rows="3"></textarea>
+    <div class="hint">{{ t.tmpl_opt_hint }}</div>
+    <label>{{ t.tmpl_opt_norm }}</label>
+    <textarea id="f-norm-opts" rows="2"></textarea>
     <label>{{ t.tmpl_course_label }}</label>
     <select id="f-course"><option value="">{{ t.tmpl_course_none }}</option></select>
     <button class="btn-primary" onclick="createTemplate()">{{ t.tmpl_create }}</button>
@@ -124,19 +129,30 @@ async function loadTemplates() {
   }).join('');
 }
 
+function parseOpts(id) {
+  return document.getElementById(id).value.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+}
+
 async function createTemplate() {
   const title = document.getElementById('f-title').value.trim();
   const claim = document.getElementById('f-claim').value.trim();
   const course = document.getElementById('f-course').value;
   if (!title || !claim) return;
+  const slots = {};
+  const emp = parseOpts('f-emp-opts');
+  const norm = parseOpts('f-norm-opts');
+  if (emp.length)  slots.empirical_premise = {options: emp};
+  if (norm.length) slots.normative_premise = {options: norm};
   const r = await fetch('/api/templates', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({title: title, claim: claim, course_id: course ? parseInt(course) : null})
+    body: JSON.stringify({title: title, claim: claim,
+                          course_id: course ? parseInt(course) : null,
+                          slots: Object.keys(slots).length ? slots : null})
   });
   if (r.ok) {
-    document.getElementById('f-title').value = '';
-    document.getElementById('f-claim').value = '';
-    document.getElementById('f-course').value = '';
+    ['f-title','f-claim','f-emp-opts','f-norm-opts','f-course'].forEach(function(id){
+      document.getElementById(id).value = '';
+    });
     loadTemplates();
   }
 }

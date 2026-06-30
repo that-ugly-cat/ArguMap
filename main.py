@@ -956,7 +956,11 @@ def open_map(map_id: int, request: Request, session: str | None = Cookie(default
     is_owner = m.user_id == user.id
     # Guided mode can be requested on an existing map (e.g. a template instance).
     guided = is_owner and request.query_params.get("mode") == "guided"
-    html = generate_html_x6(m.map_data, "output.html", return_html=True, lang=lang, guided=guided)
+    slots = None
+    if guided and m.template_id:
+        tmpl = db.query(Template).filter(Template.id == m.template_id).first()
+        slots = tmpl.slots if tmpl else None
+    html = generate_html_x6(m.map_data, "output.html", return_html=True, lang=lang, guided=guided, slots=slots)
     return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang), headers=_NO_CACHE)
 
 

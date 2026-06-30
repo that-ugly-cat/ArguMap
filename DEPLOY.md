@@ -101,14 +101,11 @@ EOF
 The app is served at **argumap.borant.eu**. Add to `/etc/caddy/Caddyfile`:
 
 ```
-argumap.borant.eu {
+argumap.yourdomain.tld {
     reverse_proxy localhost:8000
 }
 
-# Keep the old hostname working: 301-redirect bookmarks/students to the new one.
-automap.borant.eu {
-    redir https://argumap.borant.eu{uri} permanent
-}
+
 ```
 
 Then reload: `systemctl reload caddy`

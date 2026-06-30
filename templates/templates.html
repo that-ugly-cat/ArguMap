@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ t.tmpl_page_title }} — ArguMap</title>
+  <link rel="icon" type="image/png" href="/imgs/logo-automap-squared.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; background: #0f1117; color: #e2e8f0;
+           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    header { display: flex; align-items: center; justify-content: space-between;
+             padding: 0.9rem 2rem; background: #1a1d27; border-bottom: 1px solid #2d3148; }
+    header h1 { font-size: 1.1rem; font-weight: 700; color: #fff; }
+    .header-right { display: flex; align-items: center; gap: 1rem; }
+    .user-name { font-size: 0.82rem; color: #718096; }
+    .btn-sm { padding: 0.35rem 0.8rem; border-radius: 5px; font-size: 0.78rem; font-weight: 600;
+              cursor: pointer; border: none; text-decoration: none; }
+    .btn-ghost { background: transparent; color: #a0aec0; border: 1px solid #2d3148; }
+    .btn-ghost:hover { border-color: #4a6fa5; color: #e2e8f0; }
+    .btn-lang { background: #0f1117; color: #4a5568; border: 1px solid #2d3148; padding: 0.3rem 0.6rem;
+                border-radius: 5px; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+    main { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+    h2 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: #4a5568;
+         margin: 0 0 1rem; }
+    .intro { font-size: 0.85rem; color: #a0aec0; line-height: 1.6; margin-bottom: 1.8rem; }
+    .panel { background: #1a1d27; border: 1px solid #2d3148; border-radius: 10px;
+             padding: 1.2rem 1.3rem; margin-bottom: 2.2rem; }
+    label { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+            color: #718096; font-weight: 700; margin: 0.9rem 0 0.35rem; }
+    label:first-of-type { margin-top: 0; }
+    input[type=text], textarea, select {
+      width: 100%; padding: 0.55rem 0.7rem; background: #0f1117; color: #e2e8f0;
+      border: 1px solid #2d3148; border-radius: 6px; font-size: 0.88rem; font-family: inherit; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: #4a6fa5; }
+    textarea { resize: vertical; min-height: 64px; }
+    .hint { font-size: 0.72rem; color: #718096; margin-top: 0.3rem; }
+    .btn-primary { background: #2563a8; color: #fff; padding: 0.55rem 1.1rem; border: none;
+                   border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; margin-top: 1.1rem; }
+    .btn-primary:hover { background: #2b6cb8; }
+    .tmpl-item { background: #1a1d27; border: 1px solid #2d3148; border-radius: 10px;
+                 padding: 0.9rem 1.1rem; margin-bottom: 0.8rem; }
+    .tmpl-item h3 { font-size: 0.95rem; color: #fff; margin-bottom: 0.3rem; }
+    .tmpl-claim { font-size: 0.82rem; color: #a0aec0; line-height: 1.5; margin-bottom: 0.7rem; }
+    .tmpl-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .tmpl-link { flex: 1; min-width: 200px; font-size: 0.76rem; color: #718096; background: #0f1117;
+                 border: 1px solid #2d3148; border-radius: 5px; padding: 0.35rem 0.6rem;
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn-mini { padding: 0.35rem 0.7rem; border-radius: 5px; font-size: 0.74rem; font-weight: 600;
+                cursor: pointer; border: 1px solid #2d3148; background: transparent; color: #a0aec0; }
+    .btn-mini:hover { border-color: #4a6fa5; color: #e2e8f0; }
+    .btn-del { color: #fc8181; }
+    .btn-del:hover { border-color: #c53030; color: #feb2b2; }
+    .empty { font-size: 0.82rem; color: #4a5568; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>{{ t.tmpl_page_title }}</h1>
+  <div class="header-right">
+    <span class="user-name">{{ user.name or user.email }}</span>
+    <a href="/app" class="btn-sm btn-ghost">← {{ t.app_new_map if t.app_new_map else 'App' }}</a>
+    <select class="btn-lang" onchange="location='/lang/'+this.value+'?next=/teacher/templates'">
+      <option value="en"{% if lang == 'en' %} selected{% endif %}>EN</option>
+      <option value="it"{% if lang == 'it' %} selected{% endif %}>IT</option>
+      <option value="de"{% if lang == 'de' %} selected{% endif %}>DE</option>
+    </select>
+  </div>
+</header>
+
+<main>
+  <p class="intro">{{ t.tmpl_intro }}</p>
+
+  <h2>{{ t.tmpl_new }}</h2>
+  <div class="panel">
+    <label>{{ t.tmpl_title_label }}</label>
+    <input type="text" id="f-title">
+    <label>{{ t.tmpl_claim_label }}</label>
+    <textarea id="f-claim"></textarea>
+    <div class="hint">{{ t.tmpl_claim_hint }}</div>
+    <label>{{ t.tmpl_course_label }}</label>
+    <select id="f-course"><option value="">{{ t.tmpl_course_none }}</option></select>
+    <button class="btn-primary" onclick="createTemplate()">{{ t.tmpl_create }}</button>
+  </div>
+
+  <h2>{{ t.tmpl_yours }}</h2>
+  <div id="tmpl-list"><p class="empty">…</p></div>
+</main>
+
+<script>
+const T = {{ t | tojson }};
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function loadCourses() {
+  try {
+    const r = await fetch('/api/courses');
+    if (!r.ok) return;
+    const courses = await r.json();
+    const sel = document.getElementById('f-course');
+    courses.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.id; o.textContent = c.name; sel.appendChild(o);
+    });
+  } catch (e) {}
+}
+
+async function loadTemplates() {
+  const list = document.getElementById('tmpl-list');
+  const r = await fetch('/api/templates');
+  if (!r.ok) { list.innerHTML = '<p class="empty">' + escHtml(T.error || 'Error') + '</p>'; return; }
+  const items = await r.json();
+  if (!items.length) { list.innerHTML = '<p class="empty">' + escHtml(T.tmpl_none) + '</p>'; return; }
+  list.innerHTML = items.map(function(t) {
+    const link = location.origin + '/t/' + t.id;
+    return '<div class="tmpl-item">' +
+      '<h3>' + escHtml(t.title) + '</h3>' +
+      '<div class="tmpl-claim">' + escHtml(t.claim) + '</div>' +
+      '<div class="tmpl-row">' +
+        '<input class="tmpl-link" type="text" readonly value="' + escHtml(link) + '">' +
+        '<button class="btn-mini" onclick="copyLink(this, \'' + link + '\')">' + escHtml(T.tmpl_copy) + '</button>' +
+        '<button class="btn-mini btn-del" onclick="delTemplate(' + t.id + ')">' + escHtml(T.tmpl_delete) + '</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function createTemplate() {
+  const title = document.getElementById('f-title').value.trim();
+  const claim = document.getElementById('f-claim').value.trim();
+  const course = document.getElementById('f-course').value;
+  if (!title || !claim) return;
+  const r = await fetch('/api/templates', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({title: title, claim: claim, course_id: course ? parseInt(course) : null})
+  });
+  if (r.ok) {
+    document.getElementById('f-title').value = '';
+    document.getElementById('f-claim').value = '';
+    document.getElementById('f-course').value = '';
+    loadTemplates();
+  }
+}
+
+function copyLink(btn, link) {
+  navigator.clipboard.writeText(link).then(function() {
+    const old = btn.textContent; btn.textContent = T.tmpl_copied;
+    setTimeout(function(){ btn.textContent = old; }, 1400);
+  });
+}
+
+async function delTemplate(id) {
+  if (!confirm(T.tmpl_confirm_delete)) return;
+  const r = await fetch('/api/templates/' + id, {method: 'DELETE'});
+  if (r.ok) loadTemplates();
+}
+
+loadCourses();
+loadTemplates();
+</script>
+</body>
+</html>

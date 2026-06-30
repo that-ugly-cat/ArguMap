@@ -38,7 +38,7 @@ from auth import (
     require_permission, verify_password,
 )
 from models import (
-    Course, Map, Role, UsageLog, User,
+    Course, Map, Role, Template, UsageLog, User,
     course_teachers,
     get_db, init_db, log_usage, user_month_cost,
 )
@@ -393,6 +393,88 @@ def delete_map(map_id: int, user: User = Depends(get_current_user), db: Session 
     db.delete(m)
     db.commit()
     return {"ok": True}
+
+
+# ── Guided templates (teacher-authored scaffolds) ─────────────────────────────
+
+class TemplateCreate(BaseModel):
+    title:     str
+    claim:     str
+    course_id: int | None = None
+    slots:     dict | None = None
+
+
+def _require_teacher(user: User):
+    # 'view_course_maps' is the teacher gate (teachers + admin hold it).
+    if not user.has_permission("view_course_maps"):
+        raise HTTPException(403, "Teacher access required")
+
+
+@app.get("/api/templates")
+def list_templates(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _require_teacher(user)
+    q = db.query(Template).filter(Template.teacher_id == user.id).order_by(Template.created_at.desc())
+    return [{"id": t.id, "title": t.title, "claim": t.claim, "course_id": t.course_id,
+             "slots": t.slots, "created_at": t.created_at} for t in q.all()]
+
+
+@app.post("/api/templates")
+def create_template(body: TemplateCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _require_teacher(user)
+    if not body.title.strip() or not body.claim.strip():
+        raise HTTPException(400, "Title and claim are required")
+    t = Template(teacher_id=user.id, title=body.title.strip(), claim=body.claim.strip(),
+                 course_id=body.course_id, slots=body.slots)
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return {"id": t.id}
+
+
+@app.delete("/api/templates/{template_id}")
+def delete_template(template_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    t = db.query(Template).filter(Template.id == template_id, Template.teacher_id == user.id).first()
+    if not t:
+        raise HTTPException(404, "Template not found")
+    db.delete(t)
+    db.commit()
+    return {"ok": True}
+
+
+@app.get("/t/{template_id}")
+def open_template(template_id: int, request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
+    """Student entry point. Get-or-create the caller's Map instance for this
+    template (idempotent on user+template), then open it in guided mode."""
+    user = get_user_or_none(session, db)
+    if not user:
+        return RedirectResponse(f"/login?next=/t/{template_id}", status_code=302)
+    tmpl = db.query(Template).filter(Template.id == template_id).first()
+    if not tmpl:
+        raise HTTPException(404, "Template not found")
+    m = db.query(Map).filter(Map.user_id == user.id, Map.template_id == tmpl.id).first()
+    if not m:
+        seed = {"title": tmpl.title,
+                "nodes": [{"id": "C1", "type": "claim", "content": tmpl.claim, "notes": ""}],
+                "steps": []}
+        m = Map(user_id=user.id, title=tmpl.title, map_data=seed,
+                course_id=tmpl.course_id, template_id=tmpl.id)
+        db.add(m)
+        db.commit()
+        db.refresh(m)
+    return RedirectResponse(f"/map/{m.id}?mode=guided", status_code=302)
+
+
+@app.get("/teacher/templates", response_class=HTMLResponse)
+def teacher_templates_page(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
+    user = get_user_or_none(session, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    lang = _get_lang(request)
+    if not user.has_permission("view_course_maps"):
+        return templates.TemplateResponse("403.html", {"request": request, "t": _locales.get_t(lang), "lang": lang}, status_code=403)
+    return templates.TemplateResponse("templates.html", {
+        "request": request, "user": user, "t": _locales.get_t(lang), "lang": lang,
+    })
 
 
 # ── Map viewer ───────────────────────────────────────────────────────────────
@@ -871,8 +953,10 @@ def open_map(map_id: int, request: Request, session: str | None = Cookie(default
         if not course or not any(t.id == user.id for t in course.teachers):
             raise HTTPException(403, "Forbidden")
     lang = _get_lang(request)
-    html = generate_html_x6(m.map_data, "output.html", return_html=True, lang=lang)
     is_owner = m.user_id == user.id
+    # Guided mode can be requested on an existing map (e.g. a template instance).
+    guided = is_owner and request.query_params.get("mode") == "guided"
+    html = generate_html_x6(m.map_data, "output.html", return_html=True, lang=lang, guided=guided)
     return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang), headers=_NO_CACHE)
 
 

@@ -127,11 +127,36 @@ class Map(Base):
     reasoning    = Column(JSON, nullable=True)
     source_text  = Column(Text, nullable=True)
     share_token  = Column(String, nullable=True, unique=True)
+    template_id  = Column(Integer, ForeignKey("templates.id"), nullable=True)
     created_at   = Column(DateTime, default=datetime.utcnow)
     updated_at   = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user   = relationship("User", back_populates="maps")
     course = relationship("Course", back_populates="maps")
+
+
+# ── Guided templates ──────────────────────────────────────────────────────────
+
+class Template(Base):
+    """A teacher-authored guided-construction scaffold.
+
+    A student who opens the template's link gets a personal Map instance
+    (one per student+template, idempotent) seeded from `claim`, and lands in
+    guided mode. `claim` may contain a single [PLACEHOLDER] the student fills in.
+    `slots` (optional) holds preset option-lists for premise choice-slots (#5),
+    e.g. {"empirical": {"options": [...], "correct": 1}}.
+    """
+    __tablename__ = "templates"
+    id         = Column(Integer, primary_key=True)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    course_id  = Column(Integer, ForeignKey("courses.id"), nullable=True)
+    title      = Column(String, nullable=False)
+    claim      = Column(Text, nullable=False)
+    slots      = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    teacher = relationship("User")
+    course  = relationship("Course")
 
 
 # ── Usage log ─────────────────────────────────────────────────────────────────
@@ -195,6 +220,7 @@ def init_db():
             "ALTER TABLE maps ADD COLUMN reasoning JSON",
             "ALTER TABLE maps ADD COLUMN source_text TEXT",
             "ALTER TABLE maps ADD COLUMN share_token TEXT",
+            "ALTER TABLE maps ADD COLUMN template_id INTEGER",
             # course_teachers junction table (idempotent)
             """CREATE TABLE IF NOT EXISTS course_teachers (
                 course_id INTEGER NOT NULL REFERENCES courses(id),

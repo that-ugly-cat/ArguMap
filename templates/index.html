@@ -288,6 +288,9 @@
     {% elif can_manage_courses %}
     <a href="/admin" class="btn-sm btn-admin">{{ t.my_courses }}</a>
     {% endif %}
+    {% if can_manage_courses %}
+    <a href="/teacher/templates" class="btn-sm btn-ghost">{{ t.tmpl_nav }}</a>
+    {% endif %}
     <select class="btn-lang" onchange="location='/lang/'+this.value+'?next=/app'">
       <option value="en"{% if lang == 'en' %} selected{% endif %}>EN</option>
       <option value="it"{% if lang == 'it' %} selected{% endif %}>IT</option>

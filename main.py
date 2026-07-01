@@ -561,26 +561,41 @@ _ANNOT_JS = r"""
   function stopPoll(){if(timer)clearInterval(timer);timer=null;}
   function typingInPanel(){var el=document.activeElement;return !!(el&&panel&&panel.contains(el)&&(el.tagName==='TEXTAREA'||el.tagName==='INPUT'));}
   async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();drawLayer();if(active&&!typingInPanel())render();}catch(e){}}
-  function plausColor(m){if(m==null)return null;var p=(m-1)/4;var r=Math.round(210*(1-p)+56*p),g=Math.round(64*(1-p)+161*p);return 'rgb('+r+','+g+',72)';}
+  function plausColor(v){if(v==null)return '#a0aec0';var p=(v-1)/4;var r=Math.round(210*(1-p)+56*p),g=Math.round(64*(1-p)+161*p);return 'rgb('+r+','+g+',72)';}
+  function svgEl(tag,attrs){var e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(var k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function labelsFor(tk,tid,kind){return store.annotations.filter(function(a){return a.target_kind===tk&&a.target_id===tid&&a.kind===kind;}).map(function(a){return (a.payload&&a.payload.label)||'';}).filter(Boolean);}
+  // Compact SVG marker: distribution bar (1-5) + comment count + fallacy/bias chips.
+  function makeMarker(d,fall,bias){
+    var g=svgEl('g',{'class':'annot-viz','pointer-events':'none'});
+    var dist=d.plaus_dist||[0,0,0,0,0];var total=dist.reduce(function(a,b){return a+b;},0);var x=0;
+    if(total>0){
+      var mx=Math.max.apply(null,dist);
+      for(var v=0;v<5;v++){var h=mx?Math.max(2,Math.round(dist[v]/mx*15)):2;
+        g.appendChild(svgEl('rect',{x:v*10,y:16-h,width:9,height:h,rx:1,fill:plausColor(v+1),opacity:dist[v]?0.95:0.28}));}
+      if(d.plaus_mean!=null){var tx=(d.plaus_mean-1)/4*49;g.appendChild(svgEl('line',{x1:tx,y1:16,x2:tx,y2:20,stroke:'#1a202c','stroke-width':2}));}
+      x=54;
+    }
+    if(d.comments>0){var ct=svgEl('text',{x:x,y:13,'font-size':11,fill:'#2d3748'});ct.textContent='💬'+d.comments;g.appendChild(ct);}
+    var chips=[];fall.forEach(function(l){chips.push({t:'⚠ '+l,c:'#dd6b20'});});bias.forEach(function(l){chips.push({t:'⚠ '+l,c:'#805ad5'});});
+    var cy=(total>0||d.comments>0)?24:0,cx=0;
+    chips.slice(0,3).forEach(function(ch){var lb=ch.t.length>22?ch.t.slice(0,21)+'…':ch.t;var w=lb.length*5.6+8;
+      g.appendChild(svgEl('rect',{x:cx,y:cy,width:w,height:15,rx:7,fill:ch.c,opacity:0.92}));
+      var t=svgEl('text',{x:cx+5,y:cy+11,'font-size':9,fill:'#fff'});t.textContent=lb;g.appendChild(t);cx+=w+4;});
+    if(chips.length>3){var mo=svgEl('text',{x:cx,y:cy+11,'font-size':9,fill:'#718096'});mo.textContent='+'+(chips.length-3);g.appendChild(mo);}
+    return g;
+  }
   function drawLayer(){
-    document.querySelectorAll('.annot-halo,.annot-badge').forEach(function(e){e.remove();});
+    document.querySelectorAll('.annot-viz').forEach(function(e){e.remove();});
     if(typeof graph==='undefined')return;
     var agg=store.aggregates||{};
     Object.keys(agg).forEach(function(k){
-      var i=k.indexOf(':');var tk=k.slice(0,i),tid=k.slice(i+1);if(tk!=='node')return;
+      var i=k.indexOf(':');var tk=k.slice(0,i),tid=k.slice(i+1);
       var cell=graph.getCellById(tid);if(!cell)return;
       var view=graph.findViewByCell(cell);if(!view||!view.container)return;
-      var d=agg[k];var sz=cell.getSize?cell.getSize():{width:220,height:55};var ns='http://www.w3.org/2000/svg';
-      var col=plausColor(d.plaus_mean);
-      if(col){var rc=document.createElementNS(ns,'rect');rc.setAttribute('class','annot-halo');
-        rc.setAttribute('x',-4);rc.setAttribute('y',-4);rc.setAttribute('width',sz.width+8);rc.setAttribute('height',sz.height+8);
-        rc.setAttribute('rx',9);rc.setAttribute('fill','none');rc.setAttribute('stroke',col);rc.setAttribute('stroke-width',3);rc.setAttribute('pointer-events','none');
-        view.container.appendChild(rc);}
-      var cnt=(d.comments||0)+(d.fallacies||0)+(d.biases||0);
-      if(cnt>0){var g=document.createElementNS(ns,'g');g.setAttribute('class','annot-badge');g.setAttribute('pointer-events','none');
-        var c=document.createElementNS(ns,'circle');c.setAttribute('cx',sz.width);c.setAttribute('cy',0);c.setAttribute('r',9);c.setAttribute('fill','#2d3748');
-        var tx=document.createElementNS(ns,'text');tx.setAttribute('x',sz.width);tx.setAttribute('y',3);tx.setAttribute('text-anchor','middle');tx.setAttribute('font-size','9');tx.setAttribute('fill','#fff');tx.textContent=cnt;
-        g.appendChild(c);g.appendChild(tx);view.container.appendChild(g);}
+      var g=makeMarker(agg[k],labelsFor(tk,tid,'fallacy'),labelsFor(tk,tid,'bias'));
+      if(tk==='node'){var sz=cell.getSize?cell.getSize():{width:220,height:55};g.setAttribute('transform','translate(0,'+(sz.height+7)+')');}
+      else{var bb=cell.getBBox();g.setAttribute('transform','translate('+(bb.x+bb.width/2-24)+','+(bb.y+bb.height/2-8)+')');}
+      view.container.appendChild(g);
     });
   }
   function myPlaus(){if(!sel)return null;var f=store.annotations.filter(function(a){return a.mine&&a.kind==='plausibility'&&a.target_kind===sel.kind&&a.target_id===sel.id;});return f.length?f[0]:null;}
@@ -617,7 +632,7 @@ _ANNOT_JS = r"""
     else{h+='<div class="annot-list">'+list.map(function(a){
       var mark=(a.kind==='fallacy'||a.kind==='bias')?'⚠ ':'';
       var txt=a.kind==='comment'?((a.payload&&a.payload.text)||''):((a.payload&&a.payload.label)||'');
-      return '<div class="annot-item"><div class="annot-au">'+esc(a.author_name||'')+'</div><div class="annot-tx">'+esc(mark+txt)+'</div>'+(a.mine?'<button class="annot-del" onclick="__annotDel('+a.id+')">'+esc(T.annot_delete)+'</button>':'')+'</div>';
+      return '<div class="annot-item"><div class="annot-au">'+esc(a.author_name||'')+'</div><div class="annot-tx">'+esc(mark+txt)+'</div>'+((a.mine||ANNOT.canAdmin)?'<button class="annot-del" onclick="__annotDel('+a.id+')">'+esc(T.annot_delete)+'</button>':'')+'</div>';
     }).join('')+'</div>';}
     body.innerHTML=h;
   }
@@ -1140,9 +1155,13 @@ def open_map(map_id: int, request: Request, session: str | None = Cookie(default
         tmpl = db.query(Template).filter(Template.id == m.template_id).first()
         slots = tmpl.slots if tmpl else None
     html = generate_html_x6(m.map_data, "output.html", return_html=True, lang=lang, guided=guided, slots=slots)
-    # The owner can open/manage the annotation layer from their own map.
-    annotate = {"map_id": m.id, "can_admin": True, "can_write": bool(m.annotate_open),
-                "auto": False, "token": m.annotate_token} if is_owner else None
+    # The owner — or a teacher of the map's course — can open/manage the annotation layer.
+    can_admin = is_owner
+    if not can_admin and user.has_permission("view_course_maps") and m.course_id:
+        c = db.query(Course).filter(Course.id == m.course_id).first()
+        can_admin = bool(c and any(tt.id == user.id for tt in c.teachers))
+    annotate = {"map_id": m.id, "can_admin": can_admin, "can_write": bool(m.annotate_open),
+                "auto": False, "token": m.annotate_token} if can_admin else None
     return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang, annotate=annotate), headers=_NO_CACHE)
 
 
@@ -1283,9 +1302,13 @@ def list_annotations(map_id: int, session: str | None = Cookie(default=None),
     agg: dict = {}
     for a in rows:
         d = agg.setdefault(a.target_kind + ":" + a.target_id,
-                           {"plaus_sum": 0, "plaus_n": 0, "comments": 0, "fallacies": 0, "biases": 0})
+                           {"plaus_sum": 0, "plaus_n": 0, "plaus_dist": [0, 0, 0, 0, 0],
+                            "comments": 0, "fallacies": 0, "biases": 0})
         if a.kind == "plausibility" and a.payload and isinstance(a.payload.get("value"), (int, float)):
-            d["plaus_sum"] += a.payload["value"]; d["plaus_n"] += 1
+            v = int(a.payload["value"])
+            d["plaus_sum"] += v; d["plaus_n"] += 1
+            if 1 <= v <= 5:
+                d["plaus_dist"][v - 1] += 1
         elif a.kind == "comment":  d["comments"]  += 1
         elif a.kind == "fallacy":  d["fallacies"] += 1
         elif a.kind == "bias":     d["biases"]    += 1

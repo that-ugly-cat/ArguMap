@@ -2178,6 +2178,8 @@ graph.on('edge:mouseleave', hideTooltip);
 
 // --- Keyboard shortcuts ---
 document.addEventListener('keydown', function(e) {
+  // Annotate mode locks structural editing — no node/undo shortcuts at all.
+  if (mode === 'annotate') return;
   const tag = (document.activeElement || {}).tagName || '';
   const inField = ['TEXTAREA', 'INPUT', 'SELECT'].includes(tag) ||
                   !!(document.activeElement || {}).isContentEditable;

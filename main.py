@@ -559,7 +559,8 @@ _ANNOT_JS = r"""
   };
   function startPoll(){poll();timer=setInterval(poll,2000);}
   function stopPoll(){if(timer)clearInterval(timer);timer=null;}
-  async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();drawLayer();if(active)render();}catch(e){}}
+  function typingInPanel(){var el=document.activeElement;return !!(el&&panel&&panel.contains(el)&&(el.tagName==='TEXTAREA'||el.tagName==='INPUT'));}
+  async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();drawLayer();if(active&&!typingInPanel())render();}catch(e){}}
   function plausColor(m){if(m==null)return null;var p=(m-1)/4;var r=Math.round(210*(1-p)+56*p),g=Math.round(64*(1-p)+161*p);return 'rgb('+r+','+g+',72)';}
   function drawLayer(){
     document.querySelectorAll('.annot-halo,.annot-badge').forEach(function(e){e.remove();});

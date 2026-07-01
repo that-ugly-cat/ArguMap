@@ -397,6 +397,12 @@ _HTML = """\
     body.guided #btn-connect,
     body.guided #btn-guided { display: none; }
     body.guided #graph-container { left: 340px; right: 0; }
+    /* Annotate mode (#3): hide structural panels; reserve room for the annotation panel. */
+    body.annotate #add-panel,
+    body.annotate #left-panel-toggle,
+    body.annotate #edit-panel,
+    body.annotate #right-panel-toggle { display: none; }
+    body.annotate #graph-container { left: 0; right: 320px; }
     body.guided #guided-indicator { display: inline-block; }
     #guided-panel h2 { font-size: 15px; color: #1a202c; margin-bottom: 4px; }
     #guided-panel .g-sub { font-size: 11px; color: #718096; margin-bottom: 14px; line-height: 1.5; }
@@ -1731,6 +1737,9 @@ function setMode(m) {
   document.getElementById('btn-select').classList.toggle('active',  m === 'select');
   document.getElementById('btn-connect').classList.toggle('active', m === 'connect');
   document.getElementById('mode-hint').style.display = m === 'connect' ? 'inline' : 'none';
+  // Annotate mode (#3): structural editing is locked; clicks are delegated to the
+  // injected annotation client via window.__annotateClick.
+  document.body.classList.toggle('annotate', m === 'annotate');
   if (m === 'select' && connectSource) {
     connectSource.attr('body/stroke', 'none');
     connectSource.attr('body/strokeWidth', 0);
@@ -2117,6 +2126,7 @@ function renderGuided() {
 // --- Events ---
 graph.on('node:click', ({ node }) => {
   hideTooltip();
+  if (mode === 'annotate') { if (window.__annotateClick) window.__annotateClick(node); return; }
   if (mode === 'connect') { handleConnectClick(node); return; }
   if (selectedCell === node) { deselect(); return; }
   selectNode(node);
@@ -2124,6 +2134,7 @@ graph.on('node:click', ({ node }) => {
 
 graph.on('edge:click', ({ edge }) => {
   hideTooltip();
+  if (mode === 'annotate') { if (window.__annotateClick) window.__annotateClick(edge); return; }
   if (mode === 'connect') return;
   if (selectedCell === edge) { deselect(); return; }
   selectEdge(edge);

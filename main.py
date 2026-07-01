@@ -38,7 +38,7 @@ from auth import (
     require_permission, verify_password,
 )
 from models import (
-    Course, Map, Role, Template, UsageLog, User,
+    Annotation, AnnotationSession, Course, Map, Role, Template, UsageLog, User,
     course_teachers,
     get_db, init_db, log_usage, user_month_cost,
 )
@@ -497,7 +497,165 @@ def teacher_templates_page(request: Request, session: str | None = Cookie(defaul
 
 # ── Map viewer ───────────────────────────────────────────────────────────────
 
-def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasoning: bool = False, is_owner: bool = True, owner_name: str = "", lang: str = 'en') -> str:
+_ANNOT_CSS = """
+#annot-panel{position:fixed;top:44px;right:0;width:320px;bottom:0;z-index:400;background:#f7fafc;border-left:1px solid #dde1e7;display:none;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body.annot-open #annot-panel{display:flex}
+#annot-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #dde1e7;background:#fff}
+#annot-head span{font-size:13px;font-weight:700;color:#1a202c}
+#annot-x{background:none;border:none;font-size:14px;color:#718096;cursor:pointer}
+#annot-body{padding:14px;overflow-y:auto;flex:1;font-size:12px;color:#2d3748}
+#annot-fab{position:fixed;left:16px;bottom:16px;z-index:401;padding:9px 14px;border-radius:20px;border:none;background:#2980b9;color:#fff;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.annot-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#718096;font-weight:700;margin:10px 0 4px}
+.annot-target{background:#ebf5fb;border:1px solid #bee3f8;border-radius:6px;padding:8px 10px;margin-bottom:10px}
+.annot-tk{font-size:9px;text-transform:uppercase;color:#2980b9;font-weight:700;display:block;margin-bottom:2px}
+.annot-plaus{display:flex;gap:6px;margin-bottom:10px}
+.annot-p{flex:1;padding:6px 0;border:1px solid #cbd5e0;border-radius:5px;background:#fff;cursor:pointer;font-weight:600;color:#4a5568}
+.annot-p.on{background:#2980b9;color:#fff;border-color:#2980b9}
+#annot-body textarea,#annot-body input[type=text],.annot-link{width:100%;padding:7px 9px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:inherit;background:#fff;margin-bottom:6px}
+.annot-add{width:100%;padding:8px;border:none;border-radius:6px;background:#2980b9;color:#fff;font-weight:600;cursor:pointer;font-size:12px;margin-bottom:8px}
+.annot-flags{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.annot-flags input{flex:1;margin-bottom:0}
+.annot-mini{padding:6px 9px;border:1px solid #cbd5e0;border-radius:5px;background:#fff;cursor:pointer;font-size:11px;color:#4a5568;white-space:nowrap}
+.annot-danger{color:#c53030;border-color:#feb2b2;margin-top:6px;width:100%}
+.annot-list{margin-top:6px}
+.annot-item{border-top:1px solid #edf2f7;padding:7px 0}
+.annot-au{font-size:10px;color:#718096;font-weight:600}
+.annot-tx{font-size:12px;color:#2d3748;margin:2px 0}
+.annot-del{background:none;border:none;color:#c53030;font-size:10px;cursor:pointer;padding:0}
+.annot-empty,.annot-note{color:#718096;font-size:11px;padding:6px 0}
+.annot-hint{font-size:10px;color:#718096;margin:6px 0 4px}
+.annot-status{font-size:11px;color:#2d3748;margin-bottom:6px}
+.annot-linkbtn{background:none;border:none;color:#2980b9;font-size:11px;cursor:pointer;padding:0;margin-bottom:8px}
+.annot-hr{border:none;border-top:1px solid #dde1e7;margin:12px 0}
+"""
+
+# Backend-aware annotation client. Uses the viewer globals `graph` and `setMode`.
+# All map/edge writes go through the annotations API; realtime is 2s polling.
+_ANNOT_JS = r"""
+(function(){
+  if(!window.ANNOT || !ANNOT.mapId) return;
+  var T=ANNOT.t||{};
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function escA(s){return esc(s).replace(/"/g,'&quot;');}
+  var store={open:!!ANNOT.canWrite,annotations:[],aggregates:{}};
+  var sel=null, timer=null, active=false;
+  var panel=document.getElementById('annot-panel');
+  var body=document.getElementById('annot-body');
+  var fab=document.getElementById('annot-fab');
+  var titleEl=document.getElementById('annot-title');
+  if(titleEl) titleEl.textContent=T.annot_title;
+  function api(p,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json'},o.headers||{});return fetch(p,o);}
+  function enter(){active=true;document.body.classList.add('annot-open');if(window.setMode)setMode('annotate');if(fab)fab.textContent=T.annot_exit;render();startPoll();}
+  function leave(){active=false;document.body.classList.remove('annot-open');if(window.setMode)setMode('select');if(fab)fab.textContent=T.annot_enter;sel=null;stopPoll();}
+  window.__annotToggle=function(){active?leave():enter();};
+  window.__annotClosePanel=function(){if(ANNOT.canAdmin)leave();};
+  window.__annotBack=function(){sel=null;render();};
+  window.__annotateClick=function(cell){
+    if(!active)return;
+    var kind=(cell.isEdge&&cell.isEdge())?'edge':'node';
+    var d=(cell.getData&&cell.getData())||{};
+    var label=d.content||(kind==='edge'?(T.annot_target_edge||'Step'):cell.id);
+    sel={kind:kind,id:cell.id,label:label};render();
+  };
+  function startPoll(){poll();timer=setInterval(poll,2000);}
+  function stopPoll(){if(timer)clearInterval(timer);timer=null;}
+  async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();drawLayer();if(active)render();}catch(e){}}
+  function plausColor(m){if(m==null)return null;var p=(m-1)/4;var r=Math.round(210*(1-p)+56*p),g=Math.round(64*(1-p)+161*p);return 'rgb('+r+','+g+',72)';}
+  function drawLayer(){
+    document.querySelectorAll('.annot-halo,.annot-badge').forEach(function(e){e.remove();});
+    if(typeof graph==='undefined')return;
+    var agg=store.aggregates||{};
+    Object.keys(agg).forEach(function(k){
+      var i=k.indexOf(':');var tk=k.slice(0,i),tid=k.slice(i+1);if(tk!=='node')return;
+      var cell=graph.getCellById(tid);if(!cell)return;
+      var view=graph.findViewByCell(cell);if(!view||!view.container)return;
+      var d=agg[k];var sz=cell.getSize?cell.getSize():{width:220,height:55};var ns='http://www.w3.org/2000/svg';
+      var col=plausColor(d.plaus_mean);
+      if(col){var rc=document.createElementNS(ns,'rect');rc.setAttribute('class','annot-halo');
+        rc.setAttribute('x',-4);rc.setAttribute('y',-4);rc.setAttribute('width',sz.width+8);rc.setAttribute('height',sz.height+8);
+        rc.setAttribute('rx',9);rc.setAttribute('fill','none');rc.setAttribute('stroke',col);rc.setAttribute('stroke-width',3);rc.setAttribute('pointer-events','none');
+        view.container.appendChild(rc);}
+      var cnt=(d.comments||0)+(d.fallacies||0)+(d.biases||0);
+      if(cnt>0){var g=document.createElementNS(ns,'g');g.setAttribute('class','annot-badge');g.setAttribute('pointer-events','none');
+        var c=document.createElementNS(ns,'circle');c.setAttribute('cx',sz.width);c.setAttribute('cy',0);c.setAttribute('r',9);c.setAttribute('fill','#2d3748');
+        var tx=document.createElementNS(ns,'text');tx.setAttribute('x',sz.width);tx.setAttribute('y',3);tx.setAttribute('text-anchor','middle');tx.setAttribute('font-size','9');tx.setAttribute('fill','#fff');tx.textContent=cnt;
+        g.appendChild(c);g.appendChild(tx);view.container.appendChild(g);}
+    });
+  }
+  function myPlaus(){if(!sel)return null;var f=store.annotations.filter(function(a){return a.mine&&a.kind==='plausibility'&&a.target_kind===sel.kind&&a.target_id===sel.id;});return f.length?f[0]:null;}
+  function homeHtml(){
+    var h='';
+    if(ANNOT.canAdmin){
+      h+='<div class="annot-lbl">'+esc(T.annot_sharing)+'</div>';
+      h+='<div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div>';
+      h+='<button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';
+      if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;
+        h+='<div class="annot-hint">'+esc(T.annot_open_hint)+'</div><input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}
+      h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button><hr class="annot-hr">';
+    }
+    h+='<div class="annot-empty">'+esc(T.annot_select_hint)+'</div>';
+    return h;
+  }
+  function render(){
+    if(!panel||!body)return;
+    if(!sel){body.innerHTML=homeHtml();return;}
+    var here=store.annotations.filter(function(a){return a.target_kind===sel.kind&&a.target_id===sel.id;});
+    var mp=myPlaus();var h='';
+    h+='<button class="annot-linkbtn" onclick="__annotBack()">'+esc(T.annot_back)+'</button>';
+    h+='<div class="annot-target"><span class="annot-tk">'+esc(sel.kind==='edge'?T.annot_target_edge:T.annot_target_node)+'</span><div>'+esc(sel.label)+'</div></div>';
+    if(store.open){
+      h+='<div class="annot-lbl">'+esc(T.annot_plaus)+'</div><div class="annot-plaus">';
+      for(var v=1;v<=5;v++){h+='<button class="annot-p'+((mp&&mp.payload&&mp.payload.value===v)?' on':'')+'" onclick="__annotPlaus('+v+')">'+v+'</button>';}
+      h+='</div>';
+      h+='<textarea id="annot-comment" rows="2" placeholder="'+escA(T.annot_comment_ph)+'"></textarea>';
+      h+='<button class="annot-add" onclick="__annotAdd(\'comment\')">'+esc(T.annot_add)+'</button>';
+      h+='<div class="annot-flags"><input id="annot-flabel" type="text" placeholder="'+escA(T.annot_label_ph)+'"><button class="annot-mini" onclick="__annotAdd(\'fallacy\')">'+esc(T.annot_fallacy)+'</button><button class="annot-mini" onclick="__annotAdd(\'bias\')">'+esc(T.annot_bias)+'</button></div>';
+    }else{h+='<div class="annot-note">'+esc(T.annot_closed_note)+'</div>';}
+    var list=here.filter(function(a){return a.kind!=='plausibility';});
+    if(!list.length){h+='<div class="annot-empty">'+esc(T.annot_none)+'</div>';}
+    else{h+='<div class="annot-list">'+list.map(function(a){
+      var mark=(a.kind==='fallacy'||a.kind==='bias')?'⚠ ':'';
+      var txt=a.kind==='comment'?((a.payload&&a.payload.text)||''):((a.payload&&a.payload.label)||'');
+      return '<div class="annot-item"><div class="annot-au">'+esc(a.author_name||'')+'</div><div class="annot-tx">'+esc(mark+txt)+'</div>'+(a.mine?'<button class="annot-del" onclick="__annotDel('+a.id+')">'+esc(T.annot_delete)+'</button>':'')+'</div>';
+    }).join('')+'</div>';}
+    body.innerHTML=h;
+  }
+  async function post(kind,payload){if(!sel)return;await api('/api/maps/'+ANNOT.mapId+'/annotations',{method:'POST',body:JSON.stringify({target_kind:sel.kind,target_id:sel.id,kind:kind,payload:payload})});poll();}
+  window.__annotPlaus=function(v){post('plausibility',{value:v});};
+  window.__annotAdd=function(kind){
+    if(kind==='comment'){var ta=document.getElementById('annot-comment');var tx=((ta&&ta.value)||'').trim();if(!tx)return;post('comment',{text:tx});}
+    else{var li=document.getElementById('annot-flabel');var lb=((li&&li.value)||'').trim();if(!lb)return;post(kind,{label:lb});}
+  };
+  window.__annotDel=async function(id){await api('/api/annotations/'+id,{method:'DELETE'});poll();};
+  window.__annotOpenClose=async function(){var path=store.open?'close':'open';var r=await api('/api/maps/'+ANNOT.mapId+'/annotate/'+path,{method:'POST'});if(r.ok){var j=await r.json();if(j.token)ANNOT.token=j.token;store.open=!store.open;render();}};
+  window.__annotNewSession=async function(){if(!confirm(T.annot_new_session_confirm))return;await api('/api/maps/'+ANNOT.mapId+'/annotate/new-session',{method:'POST'});poll();};
+  window.__annotCopy=function(btn,link){navigator.clipboard.writeText(link).then(function(){var o=btn.textContent;btn.textContent=T.annot_copied;setTimeout(function(){btn.textContent=o;},1200);});};
+  if(fab){fab.textContent=T.annot_enter;fab.onclick=window.__annotToggle;}
+  if(ANNOT.auto){if(fab)fab.style.display='none';enter();}
+})();
+"""
+
+
+def _annotation_snippet(ctx: dict, t: dict) -> str:
+    keys = ('annot_title', 'annot_enter', 'annot_exit', 'annot_sharing', 'annot_open', 'annot_close',
+            'annot_status_open', 'annot_status_closed', 'annot_open_hint', 'annot_copy', 'annot_copied',
+            'annot_new_session', 'annot_new_session_confirm', 'annot_select_hint', 'annot_target_node',
+            'annot_target_edge', 'annot_plaus', 'annot_comment_ph', 'annot_add', 'annot_fallacy',
+            'annot_bias', 'annot_label_ph', 'annot_none', 'annot_delete', 'annot_closed_note', 'annot_back')
+    cfg = {
+        "mapId": ctx["map_id"], "canAdmin": bool(ctx.get("can_admin")),
+        "canWrite": bool(ctx.get("can_write")), "auto": bool(ctx.get("auto")),
+        "token": ctx.get("token"), "t": {k: t.get(k, k) for k in keys},
+    }
+    panel = ('<div id="annot-panel"><div id="annot-head"><span id="annot-title"></span>'
+             '<button id="annot-x" onclick="__annotClosePanel()">✕</button></div>'
+             '<div id="annot-body"></div></div><button id="annot-fab"></button>')
+    return ("<style>" + _ANNOT_CSS + "</style>" + panel +
+            "<script>\nwindow.ANNOT = " + json.dumps(cfg, ensure_ascii=False) + ";\n" +
+            _ANNOT_JS + "\n</script>")
+
+
+def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasoning: bool = False, is_owner: bool = True, owner_name: str = "", lang: str = 'en', annotate: dict | None = None) -> str:
     # Architectural note: this function appends a <script> block to the self-contained
     # HTML produced by generate_html_x6(). It injects backend-aware UI (save, share,
     # debate) that needs to know map_id, permissions, and ownership at serve time.
@@ -937,6 +1095,8 @@ def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasonin
 }})();
 </script>
 </body>"""
+    if annotate:
+        snippet = snippet + _annotation_snippet(annotate, t)
     return html.replace('</body>', snippet)
 
 
@@ -979,7 +1139,10 @@ def open_map(map_id: int, request: Request, session: str | None = Cookie(default
         tmpl = db.query(Template).filter(Template.id == m.template_id).first()
         slots = tmpl.slots if tmpl else None
     html = generate_html_x6(m.map_data, "output.html", return_html=True, lang=lang, guided=guided, slots=slots)
-    return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang), headers=_NO_CACHE)
+    # The owner can open/manage the annotation layer from their own map.
+    annotate = {"map_id": m.id, "can_admin": True, "can_write": bool(m.annotate_open),
+                "auto": False, "token": m.annotate_token} if is_owner else None
+    return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang, annotate=annotate), headers=_NO_CACHE)
 
 
 # ── Public share ──────────────────────────────────────────────────────────────
@@ -1017,6 +1180,214 @@ def revoke_share(map_id: int, user: User = Depends(get_current_user), db: Sessio
     m.share_token = None
     db.commit()
     return {"ok": True}
+
+
+# ── Annotation layer (#3) ─────────────────────────────────────────────────────
+# Annotations live in their own tables, entirely separate from map_data. Identity
+# is the logged-in account when present, otherwise a permissive anonymous token
+# cookie (RoomPulse-style). Realtime is client polling; no websockets.
+
+def _map_annot_admin(map_id: int, user: User, db: Session) -> Map:
+    """Owner, or a teacher of the map's course, may administer the annotation layer."""
+    m = db.query(Map).filter(Map.id == map_id).first()
+    if not m:
+        raise HTTPException(404, "Map not found")
+    if m.user_id != user.id:
+        if not user.has_permission("view_course_maps"):
+            raise HTTPException(403, "Forbidden")
+        course = db.query(Course).filter(Course.id == m.course_id).first()
+        if not course or not any(t.id == user.id for t in course.teachers):
+            raise HTTPException(403, "Forbidden")
+    return m
+
+
+def _active_session(map_id: int, db: Session, create: bool = False):
+    s = (db.query(AnnotationSession)
+         .filter(AnnotationSession.map_id == map_id, AnnotationSession.is_active == True)  # noqa: E712
+         .order_by(AnnotationSession.id.desc()).first())
+    if not s and create:
+        s = AnnotationSession(map_id=map_id, is_active=True)
+        db.add(s); db.commit(); db.refresh(s)
+    return s
+
+
+def _annot_identity(session: str | None, annot_token: str | None, db: Session):
+    """Return (user_id_or_None, token_or_None, display_name)."""
+    user = get_user_or_none(session, db)
+    if user:
+        return user.id, None, (user.name or user.email)
+    return None, annot_token, "Anonymous"
+
+
+@app.post("/api/maps/{map_id}/annotate/open")
+def annotate_open(map_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    m = _map_annot_admin(map_id, user, db)
+    if not m.annotate_token:
+        m.annotate_token = secrets.token_urlsafe(16)
+    m.annotate_open = True
+    _active_session(map_id, db, create=True)
+    db.commit()
+    return {"token": m.annotate_token, "open": True}
+
+
+@app.post("/api/maps/{map_id}/annotate/close")
+def annotate_close(map_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    m = _map_annot_admin(map_id, user, db)
+    m.annotate_open = False
+    db.commit()
+    return {"open": False}
+
+
+@app.post("/api/maps/{map_id}/annotate/new-session")
+def annotate_new_session(map_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    m = _map_annot_admin(map_id, user, db)
+    cur = _active_session(map_id, db)
+    if cur:
+        cur.is_active = False
+    ns = AnnotationSession(map_id=map_id, is_active=True)
+    db.add(ns); db.commit(); db.refresh(ns)
+    return {"session_id": ns.id}
+
+
+def _can_read_annotations(m: Map, user: User | None) -> bool:
+    if m.annotate_open:
+        return True
+    return bool(user and (m.user_id == user.id or user.has_permission("view_course_maps")))
+
+
+@app.get("/api/maps/{map_id}/annotations")
+def list_annotations(map_id: int, session: str | None = Cookie(default=None),
+                     annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):
+    m = db.query(Map).filter(Map.id == map_id).first()
+    if not m:
+        raise HTTPException(404, "Map not found")
+    user = get_user_or_none(session, db)
+    if not _can_read_annotations(m, user):
+        raise HTTPException(403, "Forbidden")
+    s = _active_session(map_id, db)
+    if not s:
+        return {"open": bool(m.annotate_open), "annotations": [], "aggregates": {}}
+    rows = (db.query(Annotation)
+            .filter(Annotation.session_id == s.id, Annotation.status == "visible")
+            .order_by(Annotation.created_at.asc()).all())
+    my_uid, my_tok, _ = _annot_identity(session, annot_token, db)
+
+    def is_mine(a):
+        return ((a.author_user_id is not None and a.author_user_id == my_uid) or
+                (a.author_token is not None and my_tok is not None and a.author_token == my_tok))
+
+    out = [{"id": a.id, "target_kind": a.target_kind, "target_id": a.target_id,
+            "kind": a.kind, "payload": a.payload, "author_name": a.author_name,
+            "mine": is_mine(a)} for a in rows]
+    agg: dict = {}
+    for a in rows:
+        d = agg.setdefault(a.target_kind + ":" + a.target_id,
+                           {"plaus_sum": 0, "plaus_n": 0, "comments": 0, "fallacies": 0, "biases": 0})
+        if a.kind == "plausibility" and a.payload and isinstance(a.payload.get("value"), (int, float)):
+            d["plaus_sum"] += a.payload["value"]; d["plaus_n"] += 1
+        elif a.kind == "comment":  d["comments"]  += 1
+        elif a.kind == "fallacy":  d["fallacies"] += 1
+        elif a.kind == "bias":     d["biases"]    += 1
+    for d in agg.values():
+        d["plaus_mean"] = (d["plaus_sum"] / d["plaus_n"]) if d["plaus_n"] else None
+    return {"open": bool(m.annotate_open), "annotations": out, "aggregates": agg}
+
+
+class AnnotationCreate(BaseModel):
+    target_kind: str
+    target_id:   str
+    kind:        str
+    payload:     dict | None = None
+
+
+@app.post("/api/maps/{map_id}/annotations")
+def create_annotation(map_id: int, body: AnnotationCreate, response: Response,
+                      session: str | None = Cookie(default=None),
+                      annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):
+    m = db.query(Map).filter(Map.id == map_id).first()
+    if not m:
+        raise HTTPException(404, "Map not found")
+    if not m.annotate_open:
+        raise HTTPException(403, "Annotation is closed")
+    if body.target_kind not in ("node", "edge") or body.kind not in ("comment", "plausibility", "fallacy", "bias"):
+        raise HTTPException(400, "Invalid annotation")
+    my_uid, my_tok, my_name = _annot_identity(session, annot_token, db)
+    if my_uid is None and not my_tok:
+        my_tok = secrets.token_urlsafe(12)
+        response.set_cookie("annot_token", my_tok, max_age=60 * 60 * 24 * 365, samesite="lax")
+    s = _active_session(map_id, db, create=True)
+    # Plausibility is one-per-author-per-target: upsert instead of stacking.
+    if body.kind == "plausibility":
+        q = db.query(Annotation).filter(
+            Annotation.session_id == s.id, Annotation.kind == "plausibility",
+            Annotation.target_kind == body.target_kind, Annotation.target_id == body.target_id)
+        q = q.filter(Annotation.author_user_id == my_uid) if my_uid is not None \
+            else q.filter(Annotation.author_token == my_tok)
+        existing = q.first()
+        if existing:
+            existing.payload = body.payload
+            db.commit()
+            return {"id": existing.id}
+    a = Annotation(session_id=s.id, map_id=map_id, target_kind=body.target_kind,
+                   target_id=body.target_id, author_user_id=my_uid, author_token=my_tok,
+                   author_name=my_name, kind=body.kind, payload=body.payload)
+    db.add(a); db.commit(); db.refresh(a)
+    return {"id": a.id}
+
+
+def _own_annotation(ann_id: int, session, annot_token, db) -> Annotation:
+    a = db.query(Annotation).filter(Annotation.id == ann_id).first()
+    if not a:
+        raise HTTPException(404, "Annotation not found")
+    my_uid, my_tok, _ = _annot_identity(session, annot_token, db)
+    mine = ((a.author_user_id is not None and a.author_user_id == my_uid) or
+            (a.author_token is not None and my_tok is not None and a.author_token == my_tok))
+    if not mine:
+        user = get_user_or_none(session, db)
+        m = db.query(Map).filter(Map.id == a.map_id).first()
+        if not (user and m and (m.user_id == user.id or user.has_permission("view_course_maps"))):
+            raise HTTPException(403, "Forbidden")
+    return a
+
+
+@app.patch("/api/annotations/{ann_id}")
+def update_annotation(ann_id: int, body: dict, session: str | None = Cookie(default=None),
+                      annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):
+    a = _own_annotation(ann_id, session, annot_token, db)
+    if "payload" in body:
+        a.payload = body["payload"]
+    db.commit()
+    return {"id": a.id}
+
+
+@app.delete("/api/annotations/{ann_id}")
+def delete_annotation(ann_id: int, session: str | None = Cookie(default=None),
+                      annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):
+    a = _own_annotation(ann_id, session, annot_token, db)
+    db.delete(a); db.commit()
+    return {"ok": True}
+
+
+@app.get("/annotate/{token}", response_class=HTMLResponse)
+def annotate_page(token: str, request: Request,
+                  session: str | None = Cookie(default=None),
+                  annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):
+    m = db.query(Map).filter(Map.annotate_token == token).first()
+    if not m:
+        raise HTTPException(404, "Annotation link not found")
+    user = get_user_or_none(session, db)
+    lang = _get_lang(request)
+    html = generate_html_x6(m.map_data, "output.html", return_html=True, lang=lang)
+    ctx = {"map_id": m.id, "can_admin": False, "can_write": bool(m.annotate_open),
+           "auto": True, "token": m.annotate_token}
+    out = HTMLResponse(
+        _inject_web_ui(html, None, can_debate=False, is_owner=False,
+                       owner_name=(m.user.name or m.user.email), lang=lang, annotate=ctx),
+        headers=_NO_CACHE,
+    )
+    if not user and not annot_token:
+        out.set_cookie("annot_token", secrets.token_urlsafe(12), max_age=60 * 60 * 24 * 365, samesite="lax")
+    return out
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────

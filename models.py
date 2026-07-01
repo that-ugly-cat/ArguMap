@@ -128,6 +128,10 @@ class Map(Base):
     source_text  = Column(Text, nullable=True)
     share_token  = Column(String, nullable=True, unique=True)
     template_id  = Column(Integer, ForeignKey("templates.id"), nullable=True)
+    # Annotation layer (#3): stable public link + open/frozen flag. The layer
+    # itself lives in the annotations table, never in map_data.
+    annotate_token = Column(String, nullable=True, unique=True)
+    annotate_open  = Column(Boolean, default=False)
     created_at   = Column(DateTime, default=datetime.utcnow)
     updated_at   = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -157,6 +161,38 @@ class Template(Base):
 
     teacher = relationship("User")
     course  = relationship("Course")
+
+
+# ── Annotation layer (#3) ──────────────────────────────────────────────────────
+
+class AnnotationSession(Base):
+    """A round of annotation over a map. Only one is active per map at a time;
+    opening a new session archives the previous (is_active=False), giving a clean
+    layer while preserving history (RoomPulse's run model)."""
+    __tablename__ = "annotation_sessions"
+    id         = Column(Integer, primary_key=True)
+    map_id     = Column(Integer, ForeignKey("maps.id"), nullable=False)
+    is_active  = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Annotation(Base):
+    """A single annotation on a node or edge, scoped to a session. Lives entirely
+    separate from Map.map_data — never serialized into the map itself."""
+    __tablename__ = "annotations"
+    id             = Column(Integer, primary_key=True)
+    session_id     = Column(Integer, ForeignKey("annotation_sessions.id"), nullable=False)
+    map_id         = Column(Integer, ForeignKey("maps.id"), nullable=False)
+    target_kind    = Column(String, nullable=False)    # 'node' | 'edge'
+    target_id      = Column(String, nullable=False)     # id of the node/edge in the map
+    author_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    author_token   = Column(String, nullable=True)      # anonymous identity when not logged in
+    author_name    = Column(String, nullable=True)
+    kind           = Column(String, nullable=False)     # 'comment' | 'plausibility' | 'fallacy' | 'bias'
+    payload        = Column(JSON, nullable=True)         # {text} | {value:1..5} | {label, reason}
+    status         = Column(String, default="visible")   # 'visible' | 'hidden' (moderation)
+    created_at     = Column(DateTime, default=datetime.utcnow)
+    updated_at     = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 # ── Usage log ─────────────────────────────────────────────────────────────────
@@ -221,6 +257,8 @@ def init_db():
             "ALTER TABLE maps ADD COLUMN source_text TEXT",
             "ALTER TABLE maps ADD COLUMN share_token TEXT",
             "ALTER TABLE maps ADD COLUMN template_id INTEGER",
+            "ALTER TABLE maps ADD COLUMN annotate_token TEXT",
+            "ALTER TABLE maps ADD COLUMN annotate_open BOOLEAN DEFAULT 0",
             # course_teachers junction table (idempotent)
             """CREATE TABLE IF NOT EXISTS course_teachers (
                 course_id INTEGER NOT NULL REFERENCES courses(id),

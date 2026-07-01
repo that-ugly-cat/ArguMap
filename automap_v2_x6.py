@@ -1786,7 +1786,7 @@ function handleConnectClick(node) {
 // least one empirical and one normative premise. `direction` is reserved so a
 // bottom-up variant can reuse this engine later.
 var _guided = { active: false, direction: 'top_down', phase: 'idle',
-                targetId: null, queue: [], round: [], selType: null, selOption: null };
+                targetId: null, queue: [], round: [], selType: null, selOptions: [] };
 
 // Template choice-slots (#5): {node_type: {options: [...], correct: idx}}, applied
 // when justifying the claim. Empty {} for non-template maps.
@@ -1886,8 +1886,10 @@ function _guidedAddNode(type, content, notes, idx) {
   var tgt = _guided.targetId ? graph.getCellById(_guided.targetId) : null;
   var base = tgt ? tgt.position() : { x: 360, y: 80 };
   var pos  = tgt ? { x: base.x + (idx - 1) * 250, y: base.y + 150 } : { x: 360, y: 80 };
+  // Size the node to its content (same logic as the LLM-created nodes).
+  var h = Math.max(55, wrapText(content).split('\\n').length * 16 + 24);
   return graph.addNode(makeNodeDef(
-    { id: id, type: type, content: content, notes: notes || '', width: 220, height: 55 }, pos
+    { id: id, type: type, content: content, notes: notes || '', width: 220, height: h }, pos
   ));
 }
 
@@ -1918,36 +1920,45 @@ function guidedStartClaim() {
 
 function guidedPickType(type) {
   _guided.selType = (_guided.selType === type) ? null : type;
-  _guided.selOption = null;
+  _guided.selOptions = [];
   renderGuided();
   var c = document.getElementById('g-content-input');
   if (c) c.focus();
 }
 
-function guidedPickOption(oi) { _guided.selOption = oi; renderGuided(); }
+// Choice-slots are multi-select: toggle each option in/out.
+function guidedPickOption(oi) {
+  var i = _guided.selOptions.indexOf(oi);
+  if (i >= 0) _guided.selOptions.splice(i, 1); else _guided.selOptions.push(oi);
+  renderGuided();
+}
+
+function _guidedAddOne(type, content, notes) {
+  var node = _guidedAddNode(type, content, notes, _guided.round.length + 1);
+  _guidedAddEdge(node.id, _guided.targetId);
+  _guided.round.push({ id: node.id, type: type, content: content });
+  if (type === 'intermediate_conclusion') _guided.queue.push(node.id);
+}
 
 function guidedAddSupport() {
   if (!_guided.selType) return;
   var slot = _guidedSlotFor(_guided.selType);
-  var txt, notes = '';
   if (slot) {
-    // Choice-slot: insert the picked preset option.
-    if (_guided.selOption === null || _guided.selOption === undefined) return;
-    txt = slot.options[_guided.selOption];
+    // Choice-slot: insert every picked preset option (multi-select).
+    if (!_guided.selOptions.length) return;
+    _pushUndo();
+    _guided.selOptions.slice().sort(function(a, b) { return a - b; })
+      .forEach(function(oi) { _guidedAddOne(_guided.selType, slot.options[oi], ''); });
   } else {
     var ci = document.getElementById('g-content-input');
     var ni = document.getElementById('g-notes-input');
-    txt = ((ci && ci.value) || '').trim();
-    notes = ((ni && ni.value) || '').trim();
+    var txt = ((ci && ci.value) || '').trim();
     if (!txt) { if (ci) ci.focus(); return; }
+    _pushUndo();
+    _guidedAddOne(_guided.selType, txt, ((ni && ni.value) || '').trim());
   }
-  _pushUndo();
-  var node = _guidedAddNode(_guided.selType, txt, notes, _guided.round.length + 1);
-  _guidedAddEdge(node.id, _guided.targetId);
-  _guided.round.push({ id: node.id, type: _guided.selType, content: txt });
-  if (_guided.selType === 'intermediate_conclusion') _guided.queue.push(node.id);
   _guided.selType = null;
-  _guided.selOption = null;
+  _guided.selOptions = [];
   renderGuided();
 }
 
@@ -2072,12 +2083,12 @@ function renderGuided() {
         if (slot) {
           html += '<div class="g-help" style="margin-bottom:6px">' + escHtml(T.x6_guided_pick_option) + '</div>';
           slot.options.forEach(function(opt, oi) {
-            var osel = _guided.selOption === oi;
+            var osel = _guided.selOptions.indexOf(oi) >= 0;
             html += '<button class="g-opt-btn' + (osel ? ' sel' : '') + '" data-oi="' + oi +
                     '" onclick="guidedPickOption(parseInt(this.dataset.oi))">' + escHtml(opt) + '</button>';
           });
           html += '<button class="g-btn g-btn-primary" onclick="guidedAddSupport()"' +
-                  (_guided.selOption === null ? ' disabled' : '') + '>' + escHtml(T.x6_guided_add_btn) + '</button>';
+                  (_guided.selOptions.length === 0 ? ' disabled' : '') + '>' + escHtml(T.x6_guided_add_btn) + '</button>';
         } else {
           html += '<textarea id="g-content-input" rows="2" placeholder="' + escAttr(T.x6_guided_content_ph) + '"></textarea>';
           html += '<textarea id="g-notes-input" rows="1" placeholder="' + escAttr(T.x6_guided_notes_ph) + '"></textarea>';

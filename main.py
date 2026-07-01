@@ -552,7 +552,7 @@ _ANNOT_JS = r"""
   function api(p,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json'},o.headers||{});return fetch(p,o);}
   // Catalog of fallacy/bias names from the viewer's SCHEMES_DATA (shared global lexical scope).
   function catNames(kind){var out=[];try{var root=(typeof SCHEMES_DATA!=='undefined'?SCHEMES_DATA:{})[kind]||{};Object.keys(root).forEach(function(fk){((root[fk]||{})[kind]||[]).forEach(function(it){if(it&&it.name)out.push(it.name);});});}catch(e){}return out;}
-  function ensureDatalist(){if(document.getElementById('annot-cat-list'))return;var dl=document.createElement('datalist');dl.id='annot-cat-list';catNames('fallacies').concat(catNames('biases')).forEach(function(n){var o=document.createElement('option');o.value=n;dl.appendChild(o);});document.body.appendChild(dl);}
+  function ensureDatalist(){[['fallacies','annot-fallacies-list'],['biases','annot-biases-list']].forEach(function(p){if(document.getElementById(p[1]))return;var dl=document.createElement('datalist');dl.id=p[1];catNames(p[0]).forEach(function(n){var o=document.createElement('option');o.value=n;dl.appendChild(o);});document.body.appendChild(dl);});}
   function selFromCell(cell){var kind=(cell.isEdge&&cell.isEdge())?'edge':'node';var d=(cell.getData&&cell.getData())||{};sel={kind:kind,id:cell.id,label:d.content||(kind==='edge'?(T.annot_target_edge||'Step'):cell.id)};}
   function enter(){layerOn=true;if(btn)btn.textContent=T.annot_exit;ensureDatalist();
     if(studentMode){document.body.classList.add('annot-open');if(window.setMode)setMode('annotate');}
@@ -574,7 +574,9 @@ _ANNOT_JS = r"""
   function startPoll(){poll();timer=setInterval(poll,2000);}
   function stopPoll(){if(timer)clearInterval(timer);timer=null;}
   function typingInAnnot(){var el=document.activeElement;if(!el||!el.closest)return false;return !!(el.closest('#annot-thread,#annot-panel,#annot-share')&&(el.tagName==='TEXTAREA'||el.tagName==='INPUT'));}
-  async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();drawLayer();if(layerOn&&!typingInAnnot())renderThread();}catch(e){}}
+  // Only refresh the thread on poll when a cell is selected — otherwise we would
+  // clobber the home view / open catalog every 2s.
+  async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();drawLayer();if(layerOn&&sel&&!typingInAnnot())renderThread();}catch(e){}}
   function plausColor(v){if(v==null)return '#a0aec0';var p=(v-1)/4;var r=Math.round(210*(1-p)+56*p),g=Math.round(64*(1-p)+161*p);return 'rgb('+r+','+g+',72)';}
   function svgEl(tag,attrs){var e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(var k in attrs)e.setAttribute(k,attrs[k]);return e;}
   function labelsFor(tk,tid,kind){return store.annotations.filter(function(a){return a.target_kind===tk&&a.target_id===tid&&a.kind===kind;}).map(function(a){return (a.payload&&a.payload.label)||'';}).filter(Boolean);}
@@ -623,7 +625,8 @@ _ANNOT_JS = r"""
       h+='</div>';
       h+='<textarea id="annot-comment" rows="2" placeholder="'+escA(T.annot_comment_ph)+'"></textarea>';
       h+='<button class="annot-add" onclick="__annotAdd(\'comment\')">'+esc(T.annot_add)+'</button>';
-      h+='<div class="annot-flags"><input id="annot-flabel" type="text" list="annot-cat-list" placeholder="'+escA(T.annot_label_ph)+'"><button class="annot-mini" onclick="__annotAdd(\'fallacy\')">'+esc(T.annot_fallacy)+'</button><button class="annot-mini" onclick="__annotAdd(\'bias\')">'+esc(T.annot_bias)+'</button></div>';
+      h+='<div class="annot-flags"><input id="annot-fal" type="text" list="annot-fallacies-list" placeholder="'+escA(T.annot_fallacy)+'"><button class="annot-mini" onclick="__annotAdd(\'fallacy\')">'+esc(T.annot_add)+'</button></div>';
+      h+='<div class="annot-flags"><input id="annot-bias" type="text" list="annot-biases-list" placeholder="'+escA(T.annot_bias)+'"><button class="annot-mini" onclick="__annotAdd(\'bias\')">'+esc(T.annot_add)+'</button></div>';
     }else{h+='<div class="annot-note">'+esc(T.annot_closed_note)+'</div>';}
     var list=here.filter(function(a){return a.kind!=='plausibility';});
     if(!list.length){h+='<div class="annot-empty">'+esc(T.annot_none)+'</div>';}
@@ -647,7 +650,7 @@ _ANNOT_JS = r"""
   window.__annotPlaus=function(v){post('plausibility',{value:v});};
   window.__annotAdd=function(kind){
     if(kind==='comment'){var ta=document.getElementById('annot-comment');var tx=((ta&&ta.value)||'').trim();if(!tx)return;post('comment',{text:tx});}
-    else{var li=document.getElementById('annot-flabel');var lb=((li&&li.value)||'').trim();if(!lb)return;post(kind,{label:lb});if(li)li.value='';}
+    else{var li=document.getElementById(kind==='fallacy'?'annot-fal':'annot-bias');var lb=((li&&li.value)||'').trim();if(!lb)return;post(kind,{label:lb});if(li)li.value='';}
   };
   window.__annotDel=async function(id){await api('/api/annotations/'+id,{method:'DELETE'});poll();};
   window.__annotOpenClose=async function(){var path=store.open?'close':'open';var r=await api('/api/maps/'+ANNOT.mapId+'/annotate/'+path,{method:'POST'});if(r.ok){var j=await r.json();if(j.token)ANNOT.token=j.token;store.open=!store.open;if(ownerMode)renderShare();drawLayer();renderThread();}};

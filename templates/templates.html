@@ -135,12 +135,21 @@ async function loadTemplates() {
   }).join('');
 }
 
-function parseOpts(id) {
-  return document.getElementById(id).value.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+// Lines starting with * are pre-seeded onto the map (connected to the claim);
+// the rest are pick-from options offered in guided mode.
+function parseSlot(id) {
+  var options = [], seed = [];
+  document.getElementById(id).value.split('\n').forEach(function(raw) {
+    var s = raw.trim(); if (!s) return;
+    if (s.charAt(0) === '*') { var t = s.slice(1).trim(); if (t) seed.push(t); }
+    else options.push(s);
+  });
+  return { options: options, seed: seed };
 }
 
-function slotOpts(slots, type) {
-  return (slots && slots[type] && slots[type].options) ? slots[type].options.join('\n') : '';
+function slotText(slots, type) {
+  var s = slots && slots[type]; if (!s) return '';
+  return (s.seed || []).map(function(x){ return '* ' + x; }).concat(s.options || []).join('\n');
 }
 
 function editTemplate(id) {
@@ -149,8 +158,8 @@ function editTemplate(id) {
   editingId = id;
   document.getElementById('f-title').value    = t.title || '';
   document.getElementById('f-claim').value    = t.claim || '';
-  document.getElementById('f-emp-opts').value = slotOpts(t.slots, 'empirical_premise');
-  document.getElementById('f-norm-opts').value = slotOpts(t.slots, 'normative_premise');
+  document.getElementById('f-emp-opts').value = slotText(t.slots, 'empirical_premise');
+  document.getElementById('f-norm-opts').value = slotText(t.slots, 'normative_premise');
   document.getElementById('f-course').value   = t.course_id || '';
   document.getElementById('save-btn').textContent = T.tmpl_update;
   document.getElementById('cancel-btn').style.display = '';
@@ -172,10 +181,10 @@ async function saveTemplate() {
   const course = document.getElementById('f-course').value;
   if (!title || !claim) return;
   const slots = {};
-  const emp = parseOpts('f-emp-opts');
-  const norm = parseOpts('f-norm-opts');
-  if (emp.length)  slots.empirical_premise = {options: emp};
-  if (norm.length) slots.normative_premise = {options: norm};
+  const emp = parseSlot('f-emp-opts');
+  const norm = parseSlot('f-norm-opts');
+  if (emp.options.length || emp.seed.length)  slots.empirical_premise = emp;
+  if (norm.options.length || norm.seed.length) slots.normative_premise = norm;
   const r = await fetch(editingId ? '/api/templates/' + editingId : '/api/templates', {
     method: editingId ? 'PATCH' : 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({title: title, claim: claim,

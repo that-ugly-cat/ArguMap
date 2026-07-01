@@ -471,9 +471,18 @@ def open_template(template_id: int, request: Request, session: str | None = Cook
         raise HTTPException(404, "Template not found")
     m = db.query(Map).filter(Map.user_id == user.id, Map.template_id == tmpl.id).first()
     if not m:
-        seed = {"title": tmpl.title,
-                "nodes": [{"id": "C1", "type": "claim", "content": tmpl.claim, "notes": ""}],
-                "steps": []}
+        # Premises marked with `*` in the template are pre-seeded onto the map,
+        # each connected to the claim with a "supports" step.
+        nodes = [{"id": "C1", "type": "claim", "content": tmpl.claim, "notes": ""}]
+        steps = []
+        slots = tmpl.slots or {}
+        for ntype, pfx in (("empirical_premise", "E"), ("normative_premise", "N")):
+            for i, txt in enumerate((slots.get(ntype) or {}).get("seed", []), 1):
+                nid = f"{pfx}{i}"
+                nodes.append({"id": nid, "type": ntype, "content": txt, "notes": ""})
+                steps.append({"id": f"S{len(steps) + 1}", "sources": [nid],
+                              "target": "C1", "linked": False, "relation": "supports"})
+        seed = {"title": tmpl.title, "nodes": nodes, "steps": steps}
         m = Map(user_id=user.id, title=tmpl.title, map_data=seed,
                 course_id=tmpl.course_id, template_id=tmpl.id)
         db.add(m)

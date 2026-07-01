@@ -415,6 +415,7 @@ _HTML = """\
     .g-type-btn[data-type="normative_premise"]       { background: #a88614; }
     .g-type-btn[data-type="intermediate_conclusion"] { background: #1683ab; }
     .g-type-btn[data-type="metaphysical_commitment"] { background: #a3b51b; }
+    .g-type-body { margin: 0 0 14px; }
     .g-type-desc { font-size: 10px; color: #4a5568; line-height: 1.45; margin: -2px 0 10px; padding: 0 2px; }
     .g-type-desc .g-ex { color: #718096; font-style: italic; display: block; margin-top: 3px; }
     .g-opt-btn { display: block; width: 100%; text-align: left; border: 1px solid #cbd5e0;
@@ -2054,6 +2055,7 @@ function renderGuided() {
       html += '<button class="g-type-btn' + (sel ? ' sel' : '') + '" data-type="' + tp.type +
               '" onclick="guidedPickType(this.dataset.type)">' + escHtml(TYPE_LABELS[tp.type] || tp.type) + '</button>';
       if (sel) {
+        html += '<div class="g-type-body">';
         html += '<div class="g-type-desc">' + escHtml(T[tp.desc] || '') +
                 '<span class="g-ex">' + escHtml(T[tp.ex] || '') + '</span></div>';
         var slot = _guidedSlotFor(tp.type);
@@ -2071,6 +2073,7 @@ function renderGuided() {
           html += '<textarea id="g-notes-input" rows="1" placeholder="' + escAttr(T.x6_guided_notes_ph) + '"></textarea>';
           html += '<button class="g-btn g-btn-primary" onclick="guidedAddSupport()">' + escHtml(T.x6_guided_add_btn) + '</button>';
         }
+        html += '</div>';
       }
     });
     html += '<div class="g-card" style="margin-top:12px"><h3>' + escHtml(T.x6_guided_added) + '</h3>';

@@ -431,6 +431,24 @@ def create_template(body: TemplateCreate, user: User = Depends(get_current_user)
     return {"id": t.id}
 
 
+@app.patch("/api/templates/{template_id}")
+def update_template(template_id: int, body: TemplateCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _require_teacher(user)
+    t = db.query(Template).filter(Template.id == template_id, Template.teacher_id == user.id).first()
+    if not t:
+        raise HTTPException(404, "Template not found")
+    if not body.title.strip() or not body.claim.strip():
+        raise HTTPException(400, "Title and claim are required")
+    # Edits affect maps opened from now on; already-created student instances keep
+    # the seed they were given (they are independent copies).
+    t.title     = body.title.strip()
+    t.claim     = body.claim.strip()
+    t.course_id = body.course_id
+    t.slots     = body.slots
+    db.commit()
+    return {"id": t.id}
+
+
 @app.delete("/api/templates/{template_id}")
 def delete_template(template_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     t = db.query(Template).filter(Template.id == template_id, Template.teacher_id == user.id).first()

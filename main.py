@@ -504,14 +504,17 @@ body.annot-open #annot-panel{display:flex}
 #annot-head span{font-size:13px;font-weight:700;color:#1a202c}
 #annot-x{background:none;border:none;font-size:14px;color:#718096;cursor:pointer}
 #annot-body{padding:14px;overflow-y:auto;flex:1;font-size:12px;color:#2d3748}
-#annot-fab{position:fixed;left:16px;bottom:16px;z-index:401;padding:9px 14px;border-radius:20px;border:none;background:#2980b9;color:#fff;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+#annot-thread{border-top:2px solid #dde1e7;margin-top:12px;padding-top:10px;font-size:12px;color:#2d3748}
+#annot-share{background:#ebf5fb;border:1px solid #bee3f8;border-radius:6px;padding:10px;margin-bottom:12px;font-size:12px}
+.annot-cat-item{font-size:11px;line-height:1.4;padding:5px 0;border-top:1px solid #edf2f7}
+#annot-cat-view{margin-top:8px}
 .annot-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#718096;font-weight:700;margin:10px 0 4px}
 .annot-target{background:#ebf5fb;border:1px solid #bee3f8;border-radius:6px;padding:8px 10px;margin-bottom:10px}
 .annot-tk{font-size:9px;text-transform:uppercase;color:#2980b9;font-weight:700;display:block;margin-bottom:2px}
 .annot-plaus{display:flex;gap:6px;margin-bottom:10px}
 .annot-p{flex:1;padding:6px 0;border:1px solid #cbd5e0;border-radius:5px;background:#fff;cursor:pointer;font-weight:600;color:#4a5568}
 .annot-p.on{background:#2980b9;color:#fff;border-color:#2980b9}
-#annot-body textarea,#annot-body input[type=text],.annot-link{width:100%;padding:7px 9px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:inherit;background:#fff;margin-bottom:6px}
+#annot-body textarea,#annot-body input[type=text],#annot-thread textarea,#annot-thread input[type=text],.annot-link{width:100%;padding:7px 9px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:inherit;background:#fff;margin-bottom:6px}
 .annot-add{width:100%;padding:8px;border:none;border-radius:6px;background:#2980b9;color:#fff;font-weight:600;cursor:pointer;font-size:12px;margin-bottom:8px}
 .annot-flags{display:flex;gap:6px;align-items:center;margin-bottom:8px}
 .annot-flags input{flex:1;margin-bottom:0}
@@ -538,29 +541,40 @@ _ANNOT_JS = r"""
   function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function escA(s){return esc(s).replace(/"/g,'&quot;');}
   var store={open:!!ANNOT.canWrite,annotations:[],aggregates:{}};
-  var sel=null, timer=null, active=false;
+  var sel=null, timer=null, layerOn=false;
+  var ownerMode = ANNOT.canAdmin && !ANNOT.auto;   // owner/teacher on /map/{id}: edit + annotate coexist
+  var studentMode = !ownerMode;                    // /annotate/{token}: annotate-only, structure locked
   var panel=document.getElementById('annot-panel');
   var body=document.getElementById('annot-body');
-  var fab=document.getElementById('annot-fab');
   var titleEl=document.getElementById('annot-title');
   if(titleEl) titleEl.textContent=T.annot_title;
+  var btn=document.getElementById('btn-annotate');
   function api(p,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json'},o.headers||{});return fetch(p,o);}
-  function enter(){active=true;document.body.classList.add('annot-open');if(window.setMode)setMode('annotate');if(fab)fab.textContent=T.annot_exit;render();startPoll();}
-  function leave(){active=false;document.body.classList.remove('annot-open');if(window.setMode)setMode('select');if(fab)fab.textContent=T.annot_enter;sel=null;stopPoll();}
-  window.__annotToggle=function(){active?leave():enter();};
-  window.__annotClosePanel=function(){if(ANNOT.canAdmin)leave();};
-  window.__annotBack=function(){sel=null;render();};
-  window.__annotateClick=function(cell){
-    if(!active)return;
-    var kind=(cell.isEdge&&cell.isEdge())?'edge':'node';
-    var d=(cell.getData&&cell.getData())||{};
-    var label=d.content||(kind==='edge'?(T.annot_target_edge||'Step'):cell.id);
-    sel={kind:kind,id:cell.id,label:label};render();
-  };
+  // Catalog of fallacy/bias names from the viewer's SCHEMES_DATA (shared global lexical scope).
+  function catNames(kind){var out=[];try{var root=(typeof SCHEMES_DATA!=='undefined'?SCHEMES_DATA:{})[kind]||{};Object.keys(root).forEach(function(fk){((root[fk]||{})[kind]||[]).forEach(function(it){if(it&&it.name)out.push(it.name);});});}catch(e){}return out;}
+  function ensureDatalist(){if(document.getElementById('annot-cat-list'))return;var dl=document.createElement('datalist');dl.id='annot-cat-list';catNames('fallacies').concat(catNames('biases')).forEach(function(n){var o=document.createElement('option');o.value=n;dl.appendChild(o);});document.body.appendChild(dl);}
+  function selFromCell(cell){var kind=(cell.isEdge&&cell.isEdge())?'edge':'node';var d=(cell.getData&&cell.getData())||{};sel={kind:kind,id:cell.id,label:d.content||(kind==='edge'?(T.annot_target_edge||'Step'):cell.id)};}
+  function enter(){layerOn=true;if(btn)btn.textContent=T.annot_exit;ensureDatalist();
+    if(studentMode){document.body.classList.add('annot-open');if(window.setMode)setMode('annotate');}
+    else{document.body.classList.add('annot-on');renderShare();}
+    startPoll();drawLayer();renderThread();}
+  function leave(){layerOn=false;if(btn)btn.textContent=T.annot_enter;sel=null;stopPoll();
+    document.querySelectorAll('.annot-viz').forEach(function(e){e.remove();});
+    if(studentMode){document.body.classList.remove('annot-open');if(window.setMode)setMode('select');}
+    else{document.body.classList.remove('annot-on');var e=document.getElementById('annot-thread');if(e)e.remove();var sh=document.getElementById('annot-share');if(sh)sh.remove();}}
+  window.__annotToggle=function(){layerOn?leave():enter();};
+  window.__annotClosePanel=function(){leave();};
+  window.__annotBack=function(){sel=null;renderThread();};
+  window.__annotateClick=function(cell){if(!layerOn||!studentMode)return;selFromCell(cell);renderThread();};
+  if(ownerMode){
+    graph.on('node:click',function(a){if(!layerOn)return;selFromCell(a.node);renderThread();});
+    graph.on('edge:click',function(a){if(!layerOn)return;selFromCell(a.edge);renderThread();});
+    graph.on('blank:click',function(){sel=null;renderThread();});
+  }
   function startPoll(){poll();timer=setInterval(poll,2000);}
   function stopPoll(){if(timer)clearInterval(timer);timer=null;}
-  function typingInPanel(){var el=document.activeElement;return !!(el&&panel&&panel.contains(el)&&(el.tagName==='TEXTAREA'||el.tagName==='INPUT'));}
-  async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();drawLayer();if(active&&!typingInPanel())render();}catch(e){}}
+  function typingInAnnot(){var el=document.activeElement;if(!el||!el.closest)return false;return !!(el.closest('#annot-thread,#annot-panel,#annot-share')&&(el.tagName==='TEXTAREA'||el.tagName==='INPUT'));}
+  async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();drawLayer();if(layerOn&&!typingInAnnot())renderThread();}catch(e){}}
   function plausColor(v){if(v==null)return '#a0aec0';var p=(v-1)/4;var r=Math.round(210*(1-p)+56*p),g=Math.round(64*(1-p)+161*p);return 'rgb('+r+','+g+',72)';}
   function svgEl(tag,attrs){var e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(var k in attrs)e.setAttribute(k,attrs[k]);return e;}
   function labelsFor(tk,tid,kind){return store.annotations.filter(function(a){return a.target_kind===tk&&a.target_id===tid&&a.kind===kind;}).map(function(a){return (a.payload&&a.payload.label)||'';}).filter(Boolean);}
@@ -599,25 +613,9 @@ _ANNOT_JS = r"""
     });
   }
   function myPlaus(){if(!sel)return null;var f=store.annotations.filter(function(a){return a.mine&&a.kind==='plausibility'&&a.target_kind===sel.kind&&a.target_id===sel.id;});return f.length?f[0]:null;}
-  function homeHtml(){
-    var h='';
-    if(ANNOT.canAdmin){
-      h+='<div class="annot-lbl">'+esc(T.annot_sharing)+'</div>';
-      h+='<div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div>';
-      h+='<button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';
-      if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;
-        h+='<div class="annot-hint">'+esc(T.annot_open_hint)+'</div><input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}
-      h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button><hr class="annot-hr">';
-    }
-    h+='<div class="annot-empty">'+esc(T.annot_select_hint)+'</div>';
-    return h;
-  }
-  function render(){
-    if(!panel||!body)return;
-    if(!sel){body.innerHTML=homeHtml();return;}
+  function threadHtml(){
     var here=store.annotations.filter(function(a){return a.target_kind===sel.kind&&a.target_id===sel.id;});
     var mp=myPlaus();var h='';
-    h+='<button class="annot-linkbtn" onclick="__annotBack()">'+esc(T.annot_back)+'</button>';
     h+='<div class="annot-target"><span class="annot-tk">'+esc(sel.kind==='edge'?T.annot_target_edge:T.annot_target_node)+'</span><div>'+esc(sel.label)+'</div></div>';
     if(store.open){
       h+='<div class="annot-lbl">'+esc(T.annot_plaus)+'</div><div class="annot-plaus">';
@@ -625,7 +623,7 @@ _ANNOT_JS = r"""
       h+='</div>';
       h+='<textarea id="annot-comment" rows="2" placeholder="'+escA(T.annot_comment_ph)+'"></textarea>';
       h+='<button class="annot-add" onclick="__annotAdd(\'comment\')">'+esc(T.annot_add)+'</button>';
-      h+='<div class="annot-flags"><input id="annot-flabel" type="text" placeholder="'+escA(T.annot_label_ph)+'"><button class="annot-mini" onclick="__annotAdd(\'fallacy\')">'+esc(T.annot_fallacy)+'</button><button class="annot-mini" onclick="__annotAdd(\'bias\')">'+esc(T.annot_bias)+'</button></div>';
+      h+='<div class="annot-flags"><input id="annot-flabel" type="text" list="annot-cat-list" placeholder="'+escA(T.annot_label_ph)+'"><button class="annot-mini" onclick="__annotAdd(\'fallacy\')">'+esc(T.annot_fallacy)+'</button><button class="annot-mini" onclick="__annotAdd(\'bias\')">'+esc(T.annot_bias)+'</button></div>';
     }else{h+='<div class="annot-note">'+esc(T.annot_closed_note)+'</div>';}
     var list=here.filter(function(a){return a.kind!=='plausibility';});
     if(!list.length){h+='<div class="annot-empty">'+esc(T.annot_none)+'</div>';}
@@ -634,20 +632,30 @@ _ANNOT_JS = r"""
       var txt=a.kind==='comment'?((a.payload&&a.payload.text)||''):((a.payload&&a.payload.label)||'');
       return '<div class="annot-item"><div class="annot-au">'+esc(a.author_name||'')+'</div><div class="annot-tx">'+esc(mark+txt)+'</div>'+((a.mine||ANNOT.canAdmin)?'<button class="annot-del" onclick="__annotDel('+a.id+')">'+esc(T.annot_delete)+'</button>':'')+'</div>';
     }).join('')+'</div>';}
-    body.innerHTML=h;
+    return h;
+  }
+  function catalogHtml(){var h='';[['fallacies',T.annot_fallacy],['biases',T.annot_bias]].forEach(function(p){h+='<div class="annot-lbl">'+esc(p[1])+'</div>';var root=(typeof SCHEMES_DATA!=='undefined'?SCHEMES_DATA:{})[p[0]]||{};Object.keys(root).forEach(function(fk){((root[fk]||{})[p[0]]||[]).forEach(function(it){if(it&&it.name){var d=it.definition||it.description||it.desc||it.gloss||'';h+='<div class="annot-cat-item"><b>'+esc(it.name)+'</b>'+(d?'<br><span style="color:#718096">'+esc(d)+'</span>':'')+'</div>';}});});});return h;}
+  window.__annotCatalog=function(){var v=document.getElementById('annot-cat-view');if(!v)return;v.innerHTML=v.innerHTML?'':catalogHtml();};
+  function studentHome(){return '<div class="annot-empty">'+esc(T.annot_select_hint)+'</div><button class="annot-mini" style="width:100%;margin-top:10px" onclick="__annotCatalog()">📖 '+esc(T.annot_fallacy)+' / '+esc(T.annot_bias)+'</button><div id="annot-cat-view"></div>';}
+  function ownerThreadEl(){var e=document.getElementById('annot-thread');if(!e){var ep=document.getElementById('edit-panel');if(!ep)return null;e=document.createElement('div');e.id='annot-thread';ep.appendChild(e);}return e;}
+  function renderShare(){var ep=document.getElementById('edit-panel');if(!ep)return;var sh=document.getElementById('annot-share');if(!layerOn){if(sh)sh.remove();return;}if(!sh){sh=document.createElement('div');sh.id='annot-share';ep.insertBefore(sh,ep.firstChild);}var h='<div class="annot-lbl">'+esc(T.annot_sharing)+'</div><div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div><button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;h+='<input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button>';sh.innerHTML=h;}
+  function renderThread(){
+    if(ownerMode){var el=ownerThreadEl();if(!el)return;if(!sel){el.style.display='none';el.innerHTML='';}else{el.style.display='';el.innerHTML=threadHtml();}}
+    else{if(!body)return;body.innerHTML=sel?('<button class="annot-linkbtn" onclick="__annotBack()">'+esc(T.annot_back)+'</button>'+threadHtml()):studentHome();}
   }
   async function post(kind,payload){if(!sel)return;await api('/api/maps/'+ANNOT.mapId+'/annotations',{method:'POST',body:JSON.stringify({target_kind:sel.kind,target_id:sel.id,kind:kind,payload:payload})});poll();}
   window.__annotPlaus=function(v){post('plausibility',{value:v});};
   window.__annotAdd=function(kind){
     if(kind==='comment'){var ta=document.getElementById('annot-comment');var tx=((ta&&ta.value)||'').trim();if(!tx)return;post('comment',{text:tx});}
-    else{var li=document.getElementById('annot-flabel');var lb=((li&&li.value)||'').trim();if(!lb)return;post(kind,{label:lb});}
+    else{var li=document.getElementById('annot-flabel');var lb=((li&&li.value)||'').trim();if(!lb)return;post(kind,{label:lb});if(li)li.value='';}
   };
   window.__annotDel=async function(id){await api('/api/annotations/'+id,{method:'DELETE'});poll();};
-  window.__annotOpenClose=async function(){var path=store.open?'close':'open';var r=await api('/api/maps/'+ANNOT.mapId+'/annotate/'+path,{method:'POST'});if(r.ok){var j=await r.json();if(j.token)ANNOT.token=j.token;store.open=!store.open;render();}};
+  window.__annotOpenClose=async function(){var path=store.open?'close':'open';var r=await api('/api/maps/'+ANNOT.mapId+'/annotate/'+path,{method:'POST'});if(r.ok){var j=await r.json();if(j.token)ANNOT.token=j.token;store.open=!store.open;if(ownerMode)renderShare();drawLayer();renderThread();}};
   window.__annotNewSession=async function(){if(!confirm(T.annot_new_session_confirm))return;await api('/api/maps/'+ANNOT.mapId+'/annotate/new-session',{method:'POST'});poll();};
   window.__annotCopy=function(btn,link){navigator.clipboard.writeText(link).then(function(){var o=btn.textContent;btn.textContent=T.annot_copied;setTimeout(function(){btn.textContent=o;},1200);});};
-  if(fab){fab.textContent=T.annot_enter;fab.onclick=window.__annotToggle;}
-  if(ANNOT.auto){if(fab)fab.style.display='none';enter();}
+  if(btn){btn.style.display='';btn.textContent=T.annot_enter;btn.onclick=window.__annotToggle;}
+  if(studentMode&&ANNOT.auto){['btn-select','btn-connect','btn-guided','btn-annotate'].forEach(function(id){var b=document.getElementById(id);if(b)b.style.display='none';});}
+  if(ANNOT.auto){enter();}
 })();
 """
 
@@ -665,7 +673,7 @@ def _annotation_snippet(ctx: dict, t: dict) -> str:
     }
     panel = ('<div id="annot-panel"><div id="annot-head"><span id="annot-title"></span>'
              '<button id="annot-x" onclick="__annotClosePanel()">✕</button></div>'
-             '<div id="annot-body"></div></div><button id="annot-fab"></button>')
+             '<div id="annot-body"></div></div>')
     return ("<style>" + _ANNOT_CSS + "</style>" + panel +
             "<script>\nwindow.ANNOT = " + json.dumps(cfg, ensure_ascii=False) + ";\n" +
             _ANNOT_JS + "\n</script>")

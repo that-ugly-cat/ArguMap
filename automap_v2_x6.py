@@ -663,6 +663,7 @@ _HTML = """\
     <button class="mode-btn active" id="btn-select"  onclick="setMode('select')" data-i18n="x6_select_mode">Select</button>
     <button class="mode-btn"        id="btn-connect" onclick="setMode('connect')" data-i18n="x6_connect_mode">Connect</button>
     <button class="mode-btn"        id="btn-guided"  onclick="startGuided()" data-i18n="x6_guided_btn">Guided</button>
+    <button class="mode-btn"        id="btn-annotate" style="display:none" data-i18n="annot_enter">Annotate</button>
   </div>
   <span id="guided-indicator" data-i18n="x6_guided_title">Guided construction</span>
   <span id="mode-hint" data-i18n="x6_mode_hint">Click source &#x2192; click target</span>

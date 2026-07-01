@@ -641,7 +641,7 @@ _ANNOT_JS = r"""
   window.__annotCatalog=function(){var v=document.getElementById('annot-cat-view');if(!v)return;v.innerHTML=v.innerHTML?'':catalogHtml();};
   function studentHome(){return '<div class="annot-empty">'+esc(T.annot_select_hint)+'</div><button class="annot-mini" style="width:100%;margin-top:10px" onclick="__annotCatalog()">📖 '+esc(T.annot_fallacy)+' / '+esc(T.annot_bias)+'</button><div id="annot-cat-view"></div>';}
   function ownerThreadEl(){var e=document.getElementById('annot-thread');if(!e){var ep=document.getElementById('edit-panel');if(!ep)return null;e=document.createElement('div');e.id='annot-thread';ep.appendChild(e);}return e;}
-  function renderShare(){var ep=document.getElementById('edit-panel');if(!ep)return;var sh=document.getElementById('annot-share');if(!layerOn){if(sh)sh.remove();return;}if(!sh){sh=document.createElement('div');sh.id='annot-share';ep.insertBefore(sh,ep.firstChild);}var h='<div class="annot-lbl">'+esc(T.annot_sharing)+'</div><div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div><button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;h+='<input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button>';sh.innerHTML=h;}
+  function renderShare(){var ep=document.getElementById('edit-panel');if(!ep)return;var sh=document.getElementById('annot-share');if(!layerOn){if(sh)sh.remove();return;}if(!sh){sh=document.createElement('div');sh.id='annot-share';ep.insertBefore(sh,ep.firstChild);}var h='<div class="annot-lbl">'+esc(T.annot_sharing)+'</div><div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div><button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;h+='<input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button>';h+='<button class="annot-mini" style="width:100%;margin-top:6px" onclick="__annotDetached()">'+esc(T.annot_detached)+'</button>';sh.innerHTML=h;}
   function renderThread(){
     if(ownerMode){var el=ownerThreadEl();if(!el)return;if(!sel){el.style.display='none';el.innerHTML='';}else{el.style.display='';el.innerHTML=threadHtml();}}
     else{if(!body)return;body.innerHTML=sel?('<button class="annot-linkbtn" onclick="__annotBack()">'+esc(T.annot_back)+'</button>'+threadHtml()):studentHome();}
@@ -656,6 +656,18 @@ _ANNOT_JS = r"""
   window.__annotOpenClose=async function(){var path=store.open?'close':'open';var r=await api('/api/maps/'+ANNOT.mapId+'/annotate/'+path,{method:'POST'});if(r.ok){var j=await r.json();if(j.token)ANNOT.token=j.token;store.open=!store.open;if(ownerMode)renderShare();drawLayer();renderThread();}};
   window.__annotNewSession=async function(){if(!confirm(T.annot_new_session_confirm))return;await api('/api/maps/'+ANNOT.mapId+'/annotate/new-session',{method:'POST'});poll();};
   window.__annotCopy=function(btn,link){navigator.clipboard.writeText(link).then(function(){var o=btn.textContent;btn.textContent=T.annot_copied;setTimeout(function(){btn.textContent=o;},1200);});};
+  window.__annotDetached=async function(){
+    var r=await api('/api/maps/'+ANNOT.mapId+'/annotations/detached');if(!r.ok)return;var j=await r.json();var items=j.annotations||[];
+    var ov=document.getElementById('annot-det-overlay');
+    if(!ov){ov=document.createElement('div');ov.id='annot-det-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9500;display:flex;align-items:center;justify-content:center';ov.onclick=function(e){if(e.target===ov)ov.style.display='none';};document.body.appendChild(ov);}
+    var h='<div style="background:#fff;border-radius:10px;max-width:520px;width:92%;max-height:80vh;overflow:auto;padding:18px 20px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0;font-size:14px;color:#1a202c">'+esc(T.annot_detached_title)+' ('+items.length+')</h3><button onclick="document.getElementById(\'annot-det-overlay\').style.display=\'none\'" style="background:none;border:none;font-size:16px;cursor:pointer;color:#718096">✕</button></div>';
+    if(!items.length){h+='<div style="color:#a0aec0;font-size:12px">'+esc(T.annot_detached_none)+'</div>';}
+    else{h+='<button class="annot-mini annot-danger" style="width:100%;margin-bottom:10px" onclick="__annotDetachedClear()">'+esc(T.annot_detached_clear)+'</button>';
+      h+=items.map(function(a){var mark=(a.kind==='fallacy'||a.kind==='bias')?'⚠ ':'';var txt=a.kind==='comment'?((a.payload&&a.payload.text)||''):(a.kind==='plausibility'?('★ '+((a.payload&&a.payload.value)||'')):((a.payload&&a.payload.label)||''));return '<div class="annot-item"><div class="annot-au">'+esc(a.author_name||'')+' · '+esc(a.kind)+'</div><div class="annot-tx">'+esc(mark+txt)+'</div></div>';}).join('');}
+    h+='</div>';ov.innerHTML=h;ov.style.display='flex';
+  };
+  window.__annotDetachedClear=async function(){await api('/api/maps/'+ANNOT.mapId+'/annotations/detached',{method:'DELETE'});var ov=document.getElementById('annot-det-overlay');if(ov)ov.style.display='none';poll();};
   if(btn){btn.style.display='';btn.textContent=T.annot_enter;btn.onclick=window.__annotToggle;}
   if(studentMode&&ANNOT.auto){['btn-select','btn-connect','btn-guided','btn-annotate'].forEach(function(id){var b=document.getElementById(id);if(b)b.style.display='none';});}
   if(ANNOT.auto){enter();}
@@ -668,7 +680,8 @@ def _annotation_snippet(ctx: dict, t: dict) -> str:
             'annot_status_open', 'annot_status_closed', 'annot_open_hint', 'annot_copy', 'annot_copied',
             'annot_new_session', 'annot_new_session_confirm', 'annot_select_hint', 'annot_target_node',
             'annot_target_edge', 'annot_plaus', 'annot_comment_ph', 'annot_add', 'annot_fallacy',
-            'annot_bias', 'annot_label_ph', 'annot_none', 'annot_delete', 'annot_closed_note', 'annot_back')
+            'annot_bias', 'annot_label_ph', 'annot_none', 'annot_delete', 'annot_closed_note', 'annot_back',
+            'annot_detached', 'annot_detached_title', 'annot_detached_none', 'annot_detached_clear')
     cfg = {
         "mapId": ctx["map_id"], "canAdmin": bool(ctx.get("can_admin")),
         "canWrite": bool(ctx.get("can_write")), "auto": bool(ctx.get("auto")),
@@ -1401,6 +1414,37 @@ def delete_annotation(ann_id: int, session: str | None = Cookie(default=None),
     a = _own_annotation(ann_id, session, annot_token, db)
     db.delete(a); db.commit()
     return {"ok": True}
+
+
+def _detached_annotations(m: Map, db: Session):
+    """Annotations in the active session whose target node/edge no longer exists in map_data."""
+    data = m.map_data or {}
+    valid = {str(n.get("id")) for n in data.get("nodes", []) if n.get("id")}
+    valid |= {str(s.get("id")) for s in data.get("steps", []) if s.get("id")}
+    s = _active_session(m.id, db)
+    if not s:
+        return []
+    rows = db.query(Annotation).filter(Annotation.session_id == s.id, Annotation.status == "visible").all()
+    return [a for a in rows if a.target_id not in valid]
+
+
+@app.get("/api/maps/{map_id}/annotations/detached")
+def list_detached(map_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    m = _map_annot_admin(map_id, user, db)
+    orphans = _detached_annotations(m, db)
+    return {"count": len(orphans),
+            "annotations": [{"id": a.id, "target_kind": a.target_kind, "target_id": a.target_id,
+                             "kind": a.kind, "payload": a.payload, "author_name": a.author_name} for a in orphans]}
+
+
+@app.delete("/api/maps/{map_id}/annotations/detached")
+def clear_detached(map_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    m = _map_annot_admin(map_id, user, db)
+    orphans = _detached_annotations(m, db)
+    for a in orphans:
+        db.delete(a)
+    db.commit()
+    return {"cleared": len(orphans)}
 
 
 @app.get("/annotate/{token}", response_class=HTMLResponse)

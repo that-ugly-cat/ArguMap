@@ -22,6 +22,7 @@ class NodeType(str, Enum):
     EMPIRICAL_PREMISE       = "empirical_premise"
     METAPHYSICAL_COMMITMENT = "metaphysical_commitment"
     INTERMEDIATE_CONCLUSION = "intermediate_conclusion"
+    OBJECTION               = "objection"
 
 
 class StepAnnotation(BaseModel):
@@ -117,6 +118,8 @@ You extract structured ethical argument maps from academic texts.
 - empirical_premise       — an empirical or factual premise
 - metaphysical_commitment — a deep metaphysical assumption that grounds a normative premise
 - intermediate_conclusion — a sub-conclusion within the inferential chain
+- objection                — a counter-consideration raised against the claim, a premise, or an
+  inference. Defined by its dialectical role (it tells against a position); connects via "attacks".
 
 ## ID conventions
 - Claim:                    C1
@@ -124,12 +127,13 @@ You extract structured ethical argument maps from academic texts.
 - Empirical premises:       E1, E2, ...
 - Metaphysical commitments: M1, M2, ...
 - Intermediate conclusions: IC1, IC2, ...
+- Objections:               O1, O2, ...
 - Inferential steps:        S1, S2, ...
 
 ## Notes field
 The `notes` field has a specific meaning for each node type:
 
-- **claim, normative_premise, empirical_premise, intermediate_conclusion**: use `notes` for
+- **claim, normative_premise, empirical_premise, intermediate_conclusion, objection**: use `notes` for
   bibliographic references cited in the text in support of that node's content
   (e.g. "Ardila et al. 2019, Nature Medicine", "Helsinki Declaration Art. 26").
   If no reference is cited, leave `null`.
@@ -201,10 +205,19 @@ Extract:
 - intermediate_conclusion (IC1, IC2, ...) — sub-conclusions derived from premises that feed
   toward the main claim; extract them as nodes here; they will also appear as sources or
   targets in inferential steps (step 4)
+- objection (O1, O2, ...) — a counter-consideration the text raises AGAINST the claim, a premise,
+  or an inference (NOT a supporting premise). Objections are signalled by moves like "however",
+  "critics argue", "one might object", "opponents claim", "a challenge is". Extract an objection
+  even when the author then rebuts it — mapping the objection is precisely the point. In step 4
+  an objection connects to whatever it challenges with relation "attacks".
 
 Rules:
 - Assign sequential IDs within each type (N1 before N2, etc.).
 - Keep `content` self-contained and faithful to the text — do not paraphrase heavily.
+- An objection is defined by its dialectical ROLE, not its content: it may be empirical or
+  normative in substance, but if its function in the text is to tell against a position, type it
+  `objection` — not `normative_premise`/`empirical_premise`. A consideration offered in favour of
+  the claim is a premise; the same kind of consideration offered against it is an objection.
 - If a premise mixes normative and empirical content, split it into two separate nodes:
   one normative_premise for the ethical or evaluative component, one empirical_premise
   for the factual component. Do not merge them into a single node.
@@ -288,6 +301,12 @@ For each inferential move, produce one InferentialStep.
   }}
 }}
 ```
+
+## Relations
+- `supports`  — the sources make the target more credible.
+- `attacks`   — the sources tell against the target. Every step whose source is an `objection`
+  node is an `attacks` step; a step that rebuts an objection likewise `attacks` that objection.
+- `qualifies` — the sources restrict the scope or conditions of the target.
 
 ## Annotation guide
 

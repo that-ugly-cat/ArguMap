@@ -162,6 +162,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'annot_delete':        'Delete',
         'annot_closed_note':   'Annotation is closed — read only.',
         'annot_back':          '← Back',
+        'annot_detached':      'Detached',
+        'annot_detached_title': 'Detached annotations',
+        'annot_detached_none': 'No detached annotations.',
+        'annot_detached_clear': 'Clear all detached',
         'tmpl_yours':          'Your templates',
         'tmpl_none':           'No templates yet.',
         'tmpl_link':           'Student link',
@@ -349,6 +353,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_mode_hint_label':  'Click source → click target',
         'x6_search_ph':        '🔍 Search…',
         'x6_new_node_prefix':  'New',
+        'x6_recap_btn':        'Recap',
+        'x6_recap_title':      'Fallacies & biases in this map',
+        'x6_recap_fallacies':  'Fallacies',
+        'x6_recap_biases':     'Biases',
+        'x6_recap_step':       'Step',
+        'x6_recap_label':      'Label',
+        'x6_recap_reason':     'Reason',
+        'x6_recap_none':       'None annotated yet.',
         # ── Guided construction ───────────────────────────────────────────────
         'x6_guided_btn':          'Guided',
         'x6_guided_title':        'Guided construction',
@@ -425,6 +437,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'nt_empirical':        'Empirical premise',
         'nt_metaphysical':     'Metaphysical commitment',
         'nt_intermediate':     'Intermediate conclusion',
+        'nt_objection':        'Objection',
         'nt_joiner':           'Co-premise joiner (∧)',
 
         # ── Help modal — node type descriptions ──────────────────────────────
@@ -433,6 +446,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_nt_desc_metaphysical': "Deep background assumption that grounds normative premises (Toulmin's backing).",
         'x6_nt_desc_empirical':    'A factual or empirical claim supported by evidence or data.',
         'x6_nt_desc_intermediate': 'A sub-conclusion within the inferential chain, derived from premises and feeding into the claim.',
+        'x6_nt_desc_objection': 'A counter-consideration raised against the claim, a premise, or an inference. Connects to what it challenges via “attacks”.',
         'x6_nt_desc_joiner':       'Links premises that are co-dependent: all connected premises are jointly required for the inference (linked argument, not convergent).',
 
         # ── Help modal — edge properties table ───────────────────────────────
@@ -621,6 +635,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'annot_delete':        'Elimina',
         'annot_closed_note':   'Annotazione chiusa — sola lettura.',
         'annot_back':          '← Indietro',
+        'annot_detached':      'Staccate',
+        'annot_detached_title': 'Annotazioni staccate',
+        'annot_detached_none': 'Nessuna annotazione staccata.',
+        'annot_detached_clear': 'Pulisci tutte le staccate',
         'tmpl_yours':          'I tuoi template',
         'tmpl_none':           'Ancora nessun template.',
         'tmpl_link':           'Link studente',
@@ -808,6 +826,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_mode_hint_label':  'Clicca sorgente → clicca destinazione',
         'x6_search_ph':        '🔍 Cerca…',
         'x6_new_node_prefix':  'Nuovo',
+        'x6_recap_btn':        'Riepilogo',
+        'x6_recap_title':      'Fallacie e bias in questa mappa',
+        'x6_recap_fallacies':  'Fallacie',
+        'x6_recap_biases':     'Bias',
+        'x6_recap_step':       'Passo',
+        'x6_recap_label':      'Etichetta',
+        'x6_recap_reason':     'Motivazione',
+        'x6_recap_none':       'Ancora nessuna annotata.',
         # ── Costruzione guidata ───────────────────────────────────────────────
         'x6_guided_btn':          'Guidata',
         'x6_guided_title':        'Costruzione guidata',
@@ -853,6 +879,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'nt_empirical':        'Premessa empirica',
         'nt_metaphysical':     'Impegno metafisico',
         'nt_intermediate':     'Conclusione intermedia',
+        'nt_objection':        'Obiezione',
         'nt_joiner':           'Connettore di co-premesse (∧)',
 
         # ── Help modal — descrizioni tipi di nodo ────────────────────────────
@@ -861,6 +888,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_nt_desc_metaphysical': "Assunzione di sfondo profonda che fonda le premesse normative (backing di Toulmin).",
         'x6_nt_desc_empirical':    "Un'affermazione fattuale o empirica supportata da prove o dati.",
         'x6_nt_desc_intermediate': 'Una sotto-conclusione nella catena inferenziale, derivata dalle premesse e che confluisce nel claim.',
+        'x6_nt_desc_objection': 'Una contro-considerazione sollevata contro il claim, una premessa o un’inferenza. Si collega a ciò che contesta con “attacca”.',
         'x6_nt_desc_joiner':       "Collega premesse co-dipendenti: tutte le premesse connesse sono congiuntamente necessarie per l'inferenza (argomento linked, non convergente).",
 
         # ── Help modal — tabella proprietà archi ─────────────────────────────
@@ -1080,6 +1108,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'annot_delete':        'Löschen',
         'annot_closed_note':   'Anmerkungen geschlossen — nur Lesen.',
         'annot_back':          '← Zurück',
+        'annot_detached':      'Losgelöst',
+        'annot_detached_title': 'Losgelöste Anmerkungen',
+        'annot_detached_none': 'Keine losgelösten Anmerkungen.',
+        'annot_detached_clear': 'Alle losgelösten löschen',
         'tmpl_yours':          'Ihre Vorlagen',
         'tmpl_none':           'Noch keine Vorlagen.',
         'tmpl_link':           'Studenten-Link',
@@ -1267,6 +1299,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_mode_hint_label':  'Quelle klicken → Ziel klicken',
         'x6_search_ph':        '🔍 Suchen…',
         'x6_new_node_prefix':  'Neu',
+        'x6_recap_btn':        'Übersicht',
+        'x6_recap_title':      'Fehlschlüsse & Verzerrungen in dieser Karte',
+        'x6_recap_fallacies':  'Fehlschlüsse',
+        'x6_recap_biases':     'Verzerrungen',
+        'x6_recap_step':       'Schritt',
+        'x6_recap_label':      'Bezeichnung',
+        'x6_recap_reason':     'Begründung',
+        'x6_recap_none':       'Noch keine annotiert.',
         # ── Geführte Konstruktion ─────────────────────────────────────────────
         'x6_guided_btn':          'Geführt',
         'x6_guided_title':        'Geführte Konstruktion',
@@ -1343,6 +1383,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'nt_empirical':        'Empirische Prämisse',
         'nt_metaphysical':     'Metaphysische Verpflichtung',
         'nt_intermediate':     'Zwischenkonklusion',
+        'nt_objection':        'Einwand',
         'nt_joiner':           'Co-Prämissen-Verbinder (∧)',
 
         # ── Help modal — node type descriptions ──────────────────────────────
@@ -1351,6 +1392,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_nt_desc_metaphysical': "Tiefe Hintergrundannahme, die normative Prämissen begründet (Toulmins Backing).",
         'x6_nt_desc_empirical':    'Eine faktische oder empirische Behauptung, gestützt durch Belege oder Daten.',
         'x6_nt_desc_intermediate': 'Eine Teilkonklusion innerhalb der inferenziellen Kette, aus Prämissen abgeleitet und in den Claim mündend.',
+        'x6_nt_desc_objection': 'Ein Einwand gegen die These, eine Prämisse oder eine Inferenz. Verbindet sich mit dem Angegriffenen über „greift an“.',
         'x6_nt_desc_joiner':       'Verbindet ko-abhängige Prämissen: alle verbundenen Prämissen sind gemeinsam für die Inferenz erforderlich (verknüpftes Argument, nicht konvergent).',
 
         # ── Help modal — edge properties table ───────────────────────────────

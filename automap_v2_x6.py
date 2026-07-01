@@ -473,6 +473,7 @@ _HTML = """\
     .type-btn[data-type="empirical_premise"]        { background: #630541; }
     .type-btn[data-type="metaphysical_commitment"]  { background: #a3b51b; }
     .type-btn[data-type="intermediate_conclusion"]  { background: #1683ab; }
+    .type-btn[data-type="objection"]                { background: #c0392b; }
     .type-btn[data-type="linked_joiner"]            { background: #4a5568; }
     .add-sep { border: none; border-top: 1px solid #dde1e7; margin: 8px 0; }
     .tb-btn.tb-danger { background: #e74c3c; border-color: #e74c3c; }
@@ -669,6 +670,7 @@ _HTML = """\
   <span id="mode-hint" data-i18n="x6_mode_hint">Click source &#x2192; click target</span>
   <div style="display:flex;gap:4px;flex-shrink:0;margin-left:auto">
     <button class="tb-btn" onclick="importJSON()" data-i18n="x6_import_json">Import JSON</button>
+    <button class="tb-btn" onclick="openRecap()" data-i18n="x6_recap_btn">Recap</button>
     <button class="tb-btn tb-danger" onclick="clearAll()" data-i18n="x6_clear_all">Clear all</button>
     <button class="tb-btn tb-help" onclick="openHelp()">?</button>
   </div>
@@ -682,6 +684,7 @@ _HTML = """\
   <button class="type-btn" data-type="normative_premise"       onclick="addNode('normative_premise')" data-i18n="nt_normative">Normative premise</button>
   <button class="type-btn" data-type="empirical_premise"       onclick="addNode('empirical_premise')" data-i18n="nt_empirical">Empirical premise</button>
   <button class="type-btn" data-type="intermediate_conclusion" onclick="addNode('intermediate_conclusion')" data-i18n="nt_intermediate">Intermediate conclusion</button>
+  <button class="type-btn" data-type="objection"               onclick="addNode('objection')" data-i18n="nt_objection">Objection</button>
   <button class="type-btn" data-type="linked_joiner"           onclick="addNode('linked_joiner')" data-i18n="nt_joiner">Co-premise joiner (∧)</button>
   <hr class="add-sep">
   <h3 data-i18n="x6_edge_routing">Edge routing</h3>
@@ -707,6 +710,7 @@ _HTML = """\
     <div class="l-row"><div class="l-dot" style="background:#630541"></div><span data-i18n="nt_empirical">Empirical premise</span></div>
     <div class="l-row"><div class="l-dot" style="background:#a3b51b"></div><span data-i18n="nt_metaphysical">Metaphysical commitment</span></div>
     <div class="l-row"><div class="l-dot" style="background:#1683ab"></div><span data-i18n="nt_intermediate">Intermediate conclusion</span></div>
+    <div class="l-row"><div class="l-dot" style="background:#c0392b"></div><span data-i18n="nt_objection">Objection</span></div>
     <div class="l-row"><div class="l-dot" style="background:#4a5568;border-radius:50%"></div><span data-i18n="nt_joiner">Co-premise joiner (∧)</span></div>
     <hr class="l-sep">
     <h4 data-i18n="x6_edges">Edges</h4>
@@ -734,6 +738,7 @@ _HTML = """\
       <option value="empirical_premise" data-i18n="nt_empirical">Empirical premise</option>
       <option value="metaphysical_commitment" data-i18n="nt_metaphysical">Metaphysical commitment</option>
       <option value="intermediate_conclusion" data-i18n="nt_intermediate">Intermediate conclusion</option>
+      <option value="objection" data-i18n="nt_objection">Objection</option>
       <option value="linked_joiner" data-i18n="nt_joiner">Co-premise joiner (∧)</option>
     </select>
     <label class="field-label" data-i18n="x6_content">Content</label>
@@ -787,6 +792,16 @@ _HTML = """\
 
 <div id="tooltip"></div>
 
+<div id="recap-overlay" onclick="if(event.target===this)closeRecap()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;max-width:780px;width:92%;max-height:82vh;overflow:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <h2 style="font-size:15px;color:#1a202c;margin:0" data-i18n="x6_recap_title">Fallacies &amp; biases</h2>
+      <button onclick="closeRecap()" style="background:none;border:none;font-size:16px;cursor:pointer;color:#718096">&#x2715;</button>
+    </div>
+    <div id="recap-body"></div>
+  </div>
+</div>
+
 <div id="help-overlay" onclick="if(event.target===this)closeHelp()">
   <div id="help-modal">
     <button class="close-btn" onclick="closeHelp()">&#x2715;</button>
@@ -798,6 +813,7 @@ _HTML = """\
     <div class="h-row"><div class="h-dot" style="background:#a3b51b"></div><div><span class="h-key" data-i18n="nt_metaphysical">Metaphysical commitment</span> <kbd>M</kbd> &mdash; <span data-i18n="x6_nt_desc_metaphysical">Deep background assumption that grounds normative premises (Toulmin&rsquo;s backing).</span></div></div>
     <div class="h-row"><div class="h-dot" style="background:#630541"></div><div><span class="h-key" data-i18n="nt_empirical">Empirical premise</span> <kbd>E</kbd> &mdash; <span data-i18n="x6_nt_desc_empirical">A factual or empirical claim supported by evidence or data.</span></div></div>
     <div class="h-row"><div class="h-dot" style="background:#1683ab"></div><div><span class="h-key" data-i18n="nt_intermediate">Intermediate conclusion</span> <kbd>I</kbd> &mdash; <span data-i18n="x6_nt_desc_intermediate">A sub-conclusion within the inferential chain, derived from premises and feeding into the claim.</span></div></div>
+    <div class="h-row"><div class="h-dot" style="background:#c0392b"></div><div><span class="h-key" data-i18n="nt_objection">Objection</span> <kbd>O</kbd> &mdash; <span data-i18n="x6_nt_desc_objection">A counter-consideration raised against the claim, a premise, or an inference. Connects to what it challenges via &ldquo;attacks&rdquo;.</span></div></div>
     <div class="h-row"><div class="h-dot" style="background:#4a5568;border-radius:50%"></div><div><span class="h-key" data-i18n="nt_joiner">Co-premise joiner (&#x2227;)</span> <kbd>J</kbd> &mdash; <span data-i18n="x6_nt_desc_joiner">Links premises that are co-dependent: all connected premises are jointly required for the inference (linked argument, not convergent).</span></div></div>
 
     <h3 data-i18n="x6_edge_props_h">Edge properties</h3>
@@ -876,6 +892,7 @@ const NODE_COLORS = {
   empirical_premise:       '#630541',
   metaphysical_commitment: '#a3b51b',
   intermediate_conclusion: '#1683ab',
+  objection:               '#c0392b',
   linked_joiner:           '#4a5568',
 };
 const TYPE_LABELS = {
@@ -884,6 +901,7 @@ const TYPE_LABELS = {
   empirical_premise:       T.nt_empirical,
   metaphysical_commitment: T.nt_metaphysical,
   intermediate_conclusion: T.nt_intermediate,
+  objection:               T.nt_objection,
   linked_joiner:           T.nt_joiner,
 };
 const EDGE_COLORS    = { supports: '#27ae60', attacks: '#e74c3c', qualifies: '#718096' };
@@ -1706,6 +1724,7 @@ const _NODE_ID_PREFIX = {
   empirical_premise:       'E',
   metaphysical_commitment: 'M',
   intermediate_conclusion: 'IC',
+  objection:               'O',
 };
 
 function _nextNodeId(type) {
@@ -1763,12 +1782,15 @@ function handleConnectClick(node) {
     connectSource = null;
   } else {
     _pushUndo();
+    // An objection at either end makes the default relation "attacks".
+    var _st = (connectSource.getData() || {}).type, _tt = (node.getData() || {}).type;
+    var _rel = (_st === 'objection' || _tt === 'objection') ? 'attacks' : 'supports';
     graph.addEdge({
       id: 'edge_' + Date.now(),
       source: { cell: connectSource.id }, target: { cell: node.id },
       router: EDGE_ROUTER, connector: EDGE_CONNECTOR,
-      attrs:  edgeAttrs('supports', 'unknown', 0.5),
-      data:   { relation: 'supports', rule: '', validity: 'unknown',
+      attrs:  edgeAttrs(_rel, 'unknown', 0.5),
+      data:   { relation: _rel, rule: '', validity: 'unknown',
                 bias: '', fallacy: '', strength: 0.5 },
       zIndex: 0,
     });
@@ -2189,6 +2211,43 @@ graph.on('edge:mouseenter', ({ edge }) => {
 graph.on('edge:mouseleave', hideTooltip);
 
 // --- Keyboard shortcuts ---
+// --- Recap of fallacies & biases across the map's inferential steps ---
+function _recapClip(s) { s = String(s || ''); return s.length > 44 ? s.slice(0, 43) + '…' : s; }
+function _recapRows(kind) {
+  var rows = [];
+  graph.getEdges().forEach(function(e) {
+    var d = e.getData() || {};
+    var label = d[kind + '_label'];
+    if (!label) return;
+    var s = graph.getCellById(e.getSourceCellId()), t = graph.getCellById(e.getTargetCellId());
+    var sc = s ? ((s.getData() || {}).content || s.id) : '?';
+    var tc = t ? ((t.getData() || {}).content || t.id) : '?';
+    rows.push({ step: _recapClip(sc) + ' → ' + _recapClip(tc), label: label, reason: d[kind + '_reason'] || '' });
+  });
+  return rows;
+}
+function _recapTable(titleKey, rows, color) {
+  var h = '<h3 style="font-size:12px;color:#2d3748;margin:14px 0 6px">' + escHtml(T[titleKey]) + ' (' + rows.length + ')</h3>';
+  if (!rows.length) return h + '<div style="color:#a0aec0;font-size:12px">' + escHtml(T.x6_recap_none) + '</div>';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'
+     + '<th style="text-align:left;padding:5px;border-bottom:1px solid #e2e8f0;color:#718096;font-weight:600">' + escHtml(T.x6_recap_step) + '</th>'
+     + '<th style="text-align:left;padding:5px;border-bottom:1px solid #e2e8f0;color:#718096;font-weight:600">' + escHtml(T.x6_recap_label) + '</th>'
+     + '<th style="text-align:left;padding:5px;border-bottom:1px solid #e2e8f0;color:#718096;font-weight:600">' + escHtml(T.x6_recap_reason) + '</th></tr></thead><tbody>';
+  rows.forEach(function(r) {
+    h += '<tr><td style="padding:5px;border-bottom:1px solid #f1f5f9;color:#2d3748">' + escHtml(r.step)
+       + '</td><td style="padding:5px;border-bottom:1px solid #f1f5f9;color:' + color + ';font-weight:600">' + escHtml(r.label)
+       + '</td><td style="padding:5px;border-bottom:1px solid #f1f5f9;color:#4a5568">' + escHtml(r.reason) + '</td></tr>';
+  });
+  return h + '</tbody></table>';
+}
+function openRecap() {
+  document.getElementById('recap-body').innerHTML =
+    _recapTable('x6_recap_fallacies', _recapRows('fallacy'), '#c05621')
+    + _recapTable('x6_recap_biases', _recapRows('bias'), '#805ad5');
+  document.getElementById('recap-overlay').style.display = 'flex';
+}
+function closeRecap() { document.getElementById('recap-overlay').style.display = 'none'; }
+
 document.addEventListener('keydown', function(e) {
   // Annotate mode locks structural editing — no node/undo shortcuts at all.
   if (mode === 'annotate') return;
@@ -2208,7 +2267,8 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') { if (mode === 'connect') setMode('select'); else deselect(); return; }
   if (e.key === 'c' || e.key === 'C') { e.preventDefault(); setMode(mode === 'connect' ? 'select' : 'connect'); return; }
   const NODE_KEYS = { t: 'claim', n: 'normative_premise', e: 'empirical_premise',
-                      m: 'metaphysical_commitment', i: 'intermediate_conclusion', j: 'linked_joiner' };
+                      m: 'metaphysical_commitment', i: 'intermediate_conclusion',
+                      o: 'objection', j: 'linked_joiner' };
   const nodeType = NODE_KEYS[e.key.toLowerCase()];
   if (nodeType) { e.preventDefault(); addNode(nodeType); }
 });

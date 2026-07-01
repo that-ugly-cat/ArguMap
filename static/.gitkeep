@@ -1,0 +1,3 @@
+# Keeps the (otherwise empty) static/ directory in git.
+# main.py mounts /static from here; without this file git drops the dir and
+# the container crashes at startup with "Directory 'static' does not exist".

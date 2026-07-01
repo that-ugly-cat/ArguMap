@@ -7,6 +7,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p data
+# `static` must exist for StaticFiles mount; `data` holds the SQLite DB.
+# Created here as a safety net in case the dirs are absent from the build context.
+RUN mkdir -p data static
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

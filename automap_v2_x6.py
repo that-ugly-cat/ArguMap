@@ -1072,10 +1072,14 @@ const graph = new X6.Graph({
   autoResize:  true,
   grid:        { visible: true, type: 'dot', args: { color: '#d9d9d9', thickness: 1 } },
   background:  { color: '#f0f2f5' },
-  mousewheel:  { enabled: true, zoomAtMousePosition: true },
+  mousewheel:  { enabled: true, zoomAtMousePosition: true, factor: 1.1, minScale: 0.2, maxScale: 4 },
   panning:     { enabled: true },
   interacting: { nodeMovable: true, edgeMovable: false },
 });
+
+// Mac trackpad: a pinch gesture arrives as a wheel event with ctrlKey set, which
+// browsers turn into a page zoom. Swallow the default so only the canvas zooms.
+container.addEventListener('wheel', function(e) { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 
 // --- Word wrap (mirrors Python _wrap_text) ---
 function wrapText(text, charsPerLine) {

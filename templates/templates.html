@@ -83,6 +83,8 @@
     <div class="hint">{{ t.tmpl_opt_hint }}</div>
     <label>{{ t.tmpl_opt_norm }}</label>
     <textarea id="f-norm-opts" rows="2"></textarea>
+    <label>{{ t.tmpl_opt_obj }}</label>
+    <textarea id="f-obj-opts" rows="2"></textarea>
     <label>{{ t.tmpl_course_label }}</label>
     <select id="f-course"><option value="">{{ t.tmpl_course_none }}</option></select>
     <button class="btn-primary" id="save-btn" onclick="saveTemplate()">{{ t.tmpl_create }}</button>
@@ -160,6 +162,7 @@ function editTemplate(id) {
   document.getElementById('f-claim').value    = t.claim || '';
   document.getElementById('f-emp-opts').value = slotText(t.slots, 'empirical_premise');
   document.getElementById('f-norm-opts').value = slotText(t.slots, 'normative_premise');
+  document.getElementById('f-obj-opts').value = slotText(t.slots, 'objection');
   document.getElementById('f-course').value   = t.course_id || '';
   document.getElementById('save-btn').textContent = T.tmpl_update;
   document.getElementById('cancel-btn').style.display = '';
@@ -168,7 +171,7 @@ function editTemplate(id) {
 
 function cancelEdit() {
   editingId = null;
-  ['f-title','f-claim','f-emp-opts','f-norm-opts','f-course'].forEach(function(id){
+  ['f-title','f-claim','f-emp-opts','f-norm-opts','f-obj-opts','f-course'].forEach(function(id){
     document.getElementById(id).value = '';
   });
   document.getElementById('save-btn').textContent = T.tmpl_create;
@@ -183,8 +186,10 @@ async function saveTemplate() {
   const slots = {};
   const emp = parseSlot('f-emp-opts');
   const norm = parseSlot('f-norm-opts');
+  const obj = parseSlot('f-obj-opts');
   if (emp.options.length || emp.seed.length)  slots.empirical_premise = emp;
   if (norm.options.length || norm.seed.length) slots.normative_premise = norm;
+  if (obj.options.length || obj.seed.length)   slots.objection = obj;
   const r = await fetch(editingId ? '/api/templates/' + editingId : '/api/templates', {
     method: editingId ? 'PATCH' : 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({title: title, claim: claim,

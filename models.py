@@ -132,6 +132,7 @@ class Map(Base):
     # itself lives in the annotations table, never in map_data.
     annotate_token = Column(String, nullable=True, unique=True)
     annotate_open  = Column(Boolean, default=False)
+    annotate_anon  = Column(Boolean, default=False)  # hide the owner's name from annotators
     created_at   = Column(DateTime, default=datetime.utcnow)
     updated_at   = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -259,6 +260,7 @@ def init_db():
             "ALTER TABLE maps ADD COLUMN template_id INTEGER",
             "ALTER TABLE maps ADD COLUMN annotate_token TEXT",
             "ALTER TABLE maps ADD COLUMN annotate_open BOOLEAN DEFAULT 0",
+            "ALTER TABLE maps ADD COLUMN annotate_anon BOOLEAN DEFAULT 0",
             # course_teachers junction table (idempotent)
             """CREATE TABLE IF NOT EXISTS course_teachers (
                 course_id INTEGER NOT NULL REFERENCES courses(id),

@@ -1188,26 +1188,8 @@ function renderAll() {
 
 // --- Claim ripple ---
 function addClaimRipple(targetNode) {
-  const claimNode = targetNode || graph.getNodes().find(n => (n.getData()||{}).type === 'claim');
-  if (!claimNode) return;
-  const view = graph.findViewByCell(claimNode);
-  if (!view) return;
-  const { width, height } = claimNode.getSize();
-  const ns = 'http://www.w3.org/2000/svg';
-  [0, 1].forEach(function(i) {
-    const ring = document.createElementNS(ns, 'rect');
-    ring.setAttribute('width', width);
-    ring.setAttribute('height', height);
-    ring.setAttribute('rx', 6);
-    ring.setAttribute('ry', 6);
-    ring.setAttribute('fill', 'none');
-    ring.setAttribute('stroke', '#0a3c8a');
-    ring.setAttribute('stroke-width', '2.5');
-    ring.setAttribute('pointer-events', 'none');
-    ring.setAttribute('class', 'claim-ring');
-    ring.style.animationDelay = (i * -1.1) + 's';
-    view.container.appendChild(ring);
-  });
+  // Halo effect on the claim node removed by request; kept as a no-op so the
+  // various callers don't need touching.
 }
 
 // --- Tooltip ---
@@ -1832,6 +1814,7 @@ var _GUIDED_TYPES = [
   { type: 'normative_premise',       desc: 'x6_nt_desc_normative',    ex: 'x6_guided_ex_normative',    leaf: true  },
   { type: 'intermediate_conclusion', desc: 'x6_nt_desc_intermediate', ex: 'x6_guided_ex_intermediate', leaf: false },
   { type: 'metaphysical_commitment', desc: 'x6_nt_desc_metaphysical', ex: 'x6_guided_ex_metaphysical', leaf: true  },
+  { type: 'objection',               desc: 'x6_nt_desc_objection',    ex: 'x6_guided_ex_objection',    leaf: true  },
 ];
 
 function escAttr(s) { return escHtml(s).replace(/"/g, '&quot;'); }
@@ -1919,13 +1902,14 @@ function _guidedAddNode(type, content, notes, idx) {
   ));
 }
 
-function _guidedAddEdge(srcId, tgtId) {
+function _guidedAddEdge(srcId, tgtId, relation) {
+  var rel = relation || 'supports';
   graph.addEdge({
     id: 'edge_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
     source: { cell: srcId }, target: { cell: tgtId },
     router: EDGE_ROUTER, connector: EDGE_CONNECTOR,
-    attrs:  edgeAttrs('supports', 'unknown', 0.5),
-    data:   { relation: 'supports', rule: '', validity: 'unknown', bias: '', fallacy: '', strength: 0.5 },
+    attrs:  edgeAttrs(rel, 'unknown', 0.5),
+    data:   { relation: rel, rule: '', validity: 'unknown', bias: '', fallacy: '', strength: 0.5 },
     zIndex: 0,
   });
 }
@@ -1961,7 +1945,8 @@ function guidedPickOption(oi) {
 
 function _guidedAddOne(type, content, notes) {
   var node = _guidedAddNode(type, content, notes, _guided.round.length + 1);
-  _guidedAddEdge(node.id, _guided.targetId);
+  // Objections attack the target; everything else supports it.
+  _guidedAddEdge(node.id, _guided.targetId, type === 'objection' ? 'attacks' : 'supports');
   _guided.round.push({ id: node.id, type: type, content: content });
   if (type === 'intermediate_conclusion') _guided.queue.push(node.id);
 }
@@ -1989,12 +1974,12 @@ function guidedAddSupport() {
 }
 
 function guidedDoneNode() {
-  if (_guided.round.length >= 2) { _guided.phase = 'link'; renderGuided(); return; }
-  _guidedAdvance();
-}
-
-function guidedSetLinked(isLinked) {
-  if (isLinked) _guidedMakeLinked(_guided.round.map(function(r) { return r.id; }), _guided.targetId);
+  // Everything added to support the node is co-dependent: route the supports
+  // (not the objections, which attack) through a single ∧ joiner when there are ≥2.
+  var supportIds = _guided.round
+    .filter(function(r) { return r.type !== 'objection'; })
+    .map(function(r) { return r.id; });
+  if (supportIds.length >= 2) _guidedMakeLinked(supportIds, _guided.targetId);
   _guidedAdvance();
 }
 
@@ -2088,7 +2073,7 @@ function renderGuided() {
     return;
   }
 
-  if (_guided.phase === 'support' || _guided.phase === 'link') {
+  if (_guided.phase === 'support') {
     html += _guidedChipsHtml();
     html += '<div class="g-target"><div class="g-target-lbl">' + escHtml(T.x6_guided_justifying) + '</div>' +
             '<div class="g-target-txt">' + escHtml(_nodeContentById(_guided.targetId)) + '</div></div>';
@@ -2139,15 +2124,6 @@ function renderGuided() {
             (_guided.round.length ? '' : ' disabled') + '>' + escHtml(T.x6_guided_done_node) + '</button>';
     html += _guidedQueueHtml();
     html += _guidedUnlockHtml();
-  }
-
-  if (_guided.phase === 'link') {
-    html += '<div class="g-q">' + escHtml(T.x6_guided_link_q) + '</div>';
-    html += '<div class="g-help">' + escHtml(T.x6_guided_link_explain) + '</div>';
-    html += '<div class="g-link-row">';
-    html += '<button class="g-btn g-btn-primary" onclick="guidedSetLinked(true)">' + escHtml(T.x6_guided_link_linked) + '</button>';
-    html += '<button class="g-btn g-btn-ghost" onclick="guidedSetLinked(false)">' + escHtml(T.x6_guided_link_conv) + '</button>';
-    html += '</div>';
   }
 
   if (_guided.phase === 'done') {

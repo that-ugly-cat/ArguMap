@@ -476,12 +476,23 @@ def open_template(template_id: int, request: Request, session: str | None = Cook
         nodes = [{"id": "C1", "type": "claim", "content": tmpl.claim, "notes": ""}]
         steps = []
         slots = tmpl.slots or {}
+        support_ids = []
         for ntype, pfx in (("empirical_premise", "E"), ("normative_premise", "N")):
             for i, txt in enumerate((slots.get(ntype) or {}).get("seed", []), 1):
                 nid = f"{pfx}{i}"
                 nodes.append({"id": nid, "type": ntype, "content": txt, "notes": ""})
-                steps.append({"id": f"S{len(steps) + 1}", "sources": [nid],
-                              "target": "C1", "linked": False, "relation": "supports"})
+                support_ids.append(nid)
+        # Seeded premises are co-dependent: one "supports" step through a ∧ joiner
+        # (to_x6_data expands a linked step with >1 source into the joiner).
+        if support_ids:
+            steps.append({"id": f"S{len(steps) + 1}", "sources": support_ids, "target": "C1",
+                          "linked": len(support_ids) > 1, "relation": "supports"})
+        # Seeded objections attack the claim directly.
+        for i, txt in enumerate((slots.get("objection") or {}).get("seed", []), 1):
+            oid = f"O{i}"
+            nodes.append({"id": oid, "type": "objection", "content": txt, "notes": ""})
+            steps.append({"id": f"S{len(steps) + 1}", "sources": [oid], "target": "C1",
+                          "linked": False, "relation": "attacks"})
         seed = {"title": tmpl.title, "nodes": nodes, "steps": steps}
         m = Map(user_id=user.id, title=tmpl.title, map_data=seed,
                 course_id=tmpl.course_id, template_id=tmpl.id)
@@ -650,7 +661,7 @@ _ANNOT_JS = r"""
   window.__annotCatalog=function(){var v=document.getElementById('annot-cat-view');if(!v)return;v.innerHTML=v.innerHTML?'':catalogHtml();};
   function studentHome(){return '<div class="annot-empty">'+esc(T.annot_select_hint)+'</div><button class="annot-mini" style="width:100%;margin-top:10px" onclick="__annotCatalog()">📖 '+esc(T.annot_fallacy)+' / '+esc(T.annot_bias)+'</button><div id="annot-cat-view"></div>';}
   function ownerThreadEl(){var e=document.getElementById('annot-thread');if(!e){var ep=document.getElementById('edit-panel');if(!ep)return null;e=document.createElement('div');e.id='annot-thread';ep.appendChild(e);}return e;}
-  function renderShare(){var ep=document.getElementById('edit-panel');if(!ep)return;var sh=document.getElementById('annot-share');if(!layerOn){if(sh)sh.remove();return;}if(!sh){sh=document.createElement('div');sh.id='annot-share';ep.insertBefore(sh,ep.firstChild);}var h='<div class="annot-lbl">'+esc(T.annot_sharing)+'</div><div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div><button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;h+='<input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button>';h+='<button class="annot-mini" style="width:100%;margin-top:6px" onclick="__annotDetached()">'+esc(T.annot_detached)+'</button>';sh.innerHTML=h;}
+  function renderShare(){var ep=document.getElementById('edit-panel');if(!ep)return;var sh=document.getElementById('annot-share');if(!layerOn){if(sh)sh.remove();return;}if(!sh){sh=document.createElement('div');sh.id='annot-share';ep.insertBefore(sh,ep.firstChild);}var h='<div class="annot-lbl">'+esc(T.annot_sharing)+'</div><div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div><button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;h+='<input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button>';h+='<button class="annot-mini" style="width:100%;margin-top:6px" onclick="__annotDetached()">'+esc(T.annot_detached)+'</button>';h+='<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#4a5568;cursor:pointer"><input type="checkbox" '+(ANNOT.anon?'checked':'')+' onclick="__annotAnon(this.checked)" style="width:auto;margin:0"> '+esc(T.annot_anon)+'</label>';sh.innerHTML=h;}
   function renderThread(){
     if(ownerMode){var el=ownerThreadEl();if(!el)return;if(!sel){el.style.display='none';el.innerHTML='';}else{el.style.display='';el.innerHTML=threadHtml();}}
     else{if(!body)return;body.innerHTML=sel?('<button class="annot-linkbtn" onclick="__annotBack()">'+esc(T.annot_back)+'</button>'+threadHtml()):studentHome();}
@@ -677,6 +688,7 @@ _ANNOT_JS = r"""
     h+='</div>';ov.innerHTML=h;ov.style.display='flex';
   };
   window.__annotDetachedClear=async function(){await api('/api/maps/'+ANNOT.mapId+'/annotations/detached',{method:'DELETE'});var ov=document.getElementById('annot-det-overlay');if(ov)ov.style.display='none';poll();};
+  window.__annotAnon=async function(v){await api('/api/maps/'+ANNOT.mapId+'/annotate/anon',{method:'POST',body:JSON.stringify({anon:v})});ANNOT.anon=v;};
   if(btn){btn.style.display='';btn.textContent=T.annot_enter;btn.onclick=window.__annotToggle;}
   if(studentMode&&ANNOT.auto){['btn-select','btn-connect','btn-guided','btn-annotate'].forEach(function(id){var b=document.getElementById(id);if(b)b.style.display='none';});}
   if(ANNOT.auto){enter();}
@@ -690,7 +702,8 @@ def _annotation_snippet(ctx: dict, t: dict) -> str:
             'annot_new_session', 'annot_new_session_confirm', 'annot_select_hint', 'annot_target_node',
             'annot_target_edge', 'annot_plaus', 'annot_comment_ph', 'annot_add', 'annot_fallacy',
             'annot_bias', 'annot_label_ph', 'annot_none', 'annot_delete', 'annot_closed_note', 'annot_back',
-            'annot_detached', 'annot_detached_title', 'annot_detached_none', 'annot_detached_clear')
+            'annot_detached', 'annot_detached_title', 'annot_detached_none', 'annot_detached_clear',
+            'annot_anon')
     cfg = {
         "mapId": ctx["map_id"], "canAdmin": bool(ctx.get("can_admin")),
         "canWrite": bool(ctx.get("can_write")), "auto": bool(ctx.get("auto")),
@@ -1194,7 +1207,7 @@ def open_map(map_id: int, request: Request, session: str | None = Cookie(default
         c = db.query(Course).filter(Course.id == m.course_id).first()
         can_admin = bool(c and any(tt.id == user.id for tt in c.teachers))
     annotate = {"map_id": m.id, "can_admin": can_admin, "can_write": bool(m.annotate_open),
-                "auto": False, "token": m.annotate_token} if can_admin else None
+                "auto": False, "token": m.annotate_token, "anon": bool(m.annotate_anon)} if can_admin else None
     return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang, annotate=annotate), headers=_NO_CACHE)
 
 
@@ -1300,6 +1313,14 @@ def annotate_new_session(map_id: int, user: User = Depends(get_current_user), db
     ns = AnnotationSession(map_id=map_id, is_active=True)
     db.add(ns); db.commit(); db.refresh(ns)
     return {"session_id": ns.id}
+
+
+@app.post("/api/maps/{map_id}/annotate/anon")
+def annotate_set_anon(map_id: int, body: dict, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    m = _map_annot_admin(map_id, user, db)
+    m.annotate_anon = bool(body.get("anon"))
+    db.commit()
+    return {"anon": bool(m.annotate_anon)}
 
 
 def _can_read_annotations(m: Map, user: User | None) -> bool:
@@ -1468,9 +1489,12 @@ def annotate_page(token: str, request: Request,
     html = generate_html_x6(m.map_data, "output.html", return_html=True, lang=lang)
     ctx = {"map_id": m.id, "can_admin": False, "can_write": bool(m.annotate_open),
            "auto": True, "token": m.annotate_token}
+    # Anonymous sharing: hide the owner's name from annotators.
+    owner_display = _locales.get_t(lang).get("annot_someone", "someone") if m.annotate_anon \
+        else (m.user.name or m.user.email)
     out = HTMLResponse(
         _inject_web_ui(html, None, can_debate=False, is_owner=False,
-                       owner_name=(m.user.name or m.user.email), lang=lang, annotate=ctx),
+                       owner_name=owner_display, lang=lang, annotate=ctx),
         headers=_NO_CACHE,
     )
     if not user and not annot_token:

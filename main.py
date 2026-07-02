@@ -561,7 +561,7 @@ _ANNOT_JS = r"""
   function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function escA(s){return esc(s).replace(/"/g,'&quot;');}
   var store={open:!!ANNOT.canWrite,annotations:[],aggregates:{}};
-  var sel=null, timer=null, layerOn=false;
+  var sel=null, timer=null, layerOn=false, _lastMapUp=null, _saveTimer=null;
   var ownerMode = ANNOT.canAdmin && !ANNOT.auto;   // owner/teacher on /map/{id}: edit + annotate coexist
   var studentMode = !ownerMode;                    // /annotate/{token}: annotate-only, structure locked
   var panel=document.getElementById('annot-panel');
@@ -575,7 +575,8 @@ _ANNOT_JS = r"""
   function ensureDatalist(){[['fallacies','annot-fallacies-list'],['biases','annot-biases-list']].forEach(function(p){if(document.getElementById(p[1]))return;var dl=document.createElement('datalist');dl.id=p[1];catNames(p[0]).forEach(function(n){var o=document.createElement('option');o.value=n;dl.appendChild(o);});document.body.appendChild(dl);});}
   function selFromCell(cell){var kind=(cell.isEdge&&cell.isEdge())?'edge':'node';var d=(cell.getData&&cell.getData())||{};sel={kind:kind,id:cell.id,label:d.content||(kind==='edge'?(T.annot_target_edge||'Step'):cell.id)};}
   function enter(){layerOn=true;if(btn)btn.textContent=T.annot_exit;ensureDatalist();
-    if(studentMode){document.body.classList.add('annot-open');if(window.setMode)setMode('annotate');}
+    if(studentMode){document.body.classList.add('annot-open');if(window.setMode)setMode('annotate');
+      if(typeof graph!=='undefined'&&graph.setInteracting)graph.setInteracting({nodeMovable:false,edgeMovable:false});}
     else{document.body.classList.add('annot-on');renderShare();}
     startPoll();drawLayer();renderThread();}
   function leave(){layerOn=false;if(btn)btn.textContent=T.annot_enter;sel=null;stopPoll();
@@ -591,12 +592,37 @@ _ANNOT_JS = r"""
     graph.on('edge:click',function(a){if(!layerOn)return;selFromCell(a.edge);renderThread();});
     graph.on('blank:click',function(){sel=null;renderThread();});
   }
+  if(ownerMode && ANNOT.owner && typeof graph!=='undefined'){
+    ['node:added','node:removed','node:moved','edge:added','edge:removed','node:change:data','edge:change:data','cell:change:position'].forEach(function(ev){
+      graph.on(ev, function(){ if(layerOn) _annotAutosave(); });
+    });
+  }
   function startPoll(){poll();timer=setInterval(poll,2000);}
   function stopPoll(){if(timer)clearInterval(timer);timer=null;}
   function typingInAnnot(){var el=document.activeElement;if(!el||!el.closest)return false;return !!(el.closest('#annot-thread,#annot-panel,#annot-share')&&(el.tagName==='TEXTAREA'||el.tagName==='INPUT'));}
   // Only refresh the thread on poll when a cell is selected — otherwise we would
   // clobber the home view / open catalog every 2s.
-  async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();drawLayer();if(layerOn&&sel&&!typingInAnnot())renderThread();}catch(e){}}
+  // Viewers pick up the owner's live map edits: when the map's timestamp changes,
+  // refetch the structure and rebuild (the owner is the source, so they don't).
+  async function _refreshMapIfChanged(){
+    if(ownerMode || !store.map_updated) return;
+    if(_lastMapUp === null){ _lastMapUp = store.map_updated; return; }
+    if(store.map_updated === _lastMapUp) return;
+    _lastMapUp = store.map_updated;
+    try{var dr=await api('/api/maps/'+ANNOT.mapId+'/annotate/data');if(!dr.ok)return;var dj=await dr.json();
+      if(dj.map_data && typeof rebuildFromMap==='function'){ rebuildFromMap(dj.map_data);
+        if(typeof graph!=='undefined'&&graph.setInteracting)graph.setInteracting({nodeMovable:false,edgeMovable:false}); }}catch(e){}
+  }
+  async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();await _refreshMapIfChanged();drawLayer();if(layerOn&&sel&&!typingInAnnot())renderThread();}catch(e){}}
+  // Owner autosave while annotating, so viewers see edits within a poll cycle.
+  function _annotAutosave(){
+    if(!ANNOT.owner) return;
+    if(_saveTimer) clearTimeout(_saveTimer);
+    _saveTimer=setTimeout(async function(){
+      try{ if(typeof _captureState!=='function') return; var st=_captureState(); if(!st) return;
+        await api('/api/maps/'+ANNOT.mapId,{method:'PUT',body:JSON.stringify({title:st.title||'Argument Map',map_data:st})}); }catch(e){}
+    },800);
+  }
   function plausColor(v){if(v==null)return '#a0aec0';var p=(v-1)/4;var r=Math.round(210*(1-p)+56*p),g=Math.round(64*(1-p)+161*p);return 'rgb('+r+','+g+',72)';}
   function svgEl(tag,attrs){var e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(var k in attrs)e.setAttribute(k,attrs[k]);return e;}
   function labelsFor(tk,tid,kind){return store.annotations.filter(function(a){return a.target_kind===tk&&a.target_id===tid&&a.kind===kind;}).map(function(a){return (a.payload&&a.payload.label)||'';}).filter(Boolean);}
@@ -1207,7 +1233,8 @@ def open_map(map_id: int, request: Request, session: str | None = Cookie(default
         c = db.query(Course).filter(Course.id == m.course_id).first()
         can_admin = bool(c and any(tt.id == user.id for tt in c.teachers))
     annotate = {"map_id": m.id, "can_admin": can_admin, "can_write": bool(m.annotate_open),
-                "auto": False, "token": m.annotate_token, "anon": bool(m.annotate_anon)} if can_admin else None
+                "auto": False, "token": m.annotate_token, "anon": bool(m.annotate_anon),
+                "owner": is_owner} if can_admin else None
     return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang, annotate=annotate), headers=_NO_CACHE)
 
 
@@ -1338,9 +1365,10 @@ def list_annotations(map_id: int, session: str | None = Cookie(default=None),
     user = get_user_or_none(session, db)
     if not _can_read_annotations(m, user):
         raise HTTPException(403, "Forbidden")
+    map_updated = m.updated_at.isoformat() if m.updated_at else None
     s = _active_session(map_id, db)
     if not s:
-        return {"open": bool(m.annotate_open), "annotations": [], "aggregates": {}}
+        return {"open": bool(m.annotate_open), "annotations": [], "aggregates": {}, "map_updated": map_updated}
     rows = (db.query(Annotation)
             .filter(Annotation.session_id == s.id, Annotation.status == "visible")
             .order_by(Annotation.created_at.asc()).all())
@@ -1368,7 +1396,18 @@ def list_annotations(map_id: int, session: str | None = Cookie(default=None),
         elif a.kind == "bias":     d["biases"]    += 1
     for d in agg.values():
         d["plaus_mean"] = (d["plaus_sum"] / d["plaus_n"]) if d["plaus_n"] else None
-    return {"open": bool(m.annotate_open), "annotations": out, "aggregates": agg}
+    return {"open": bool(m.annotate_open), "annotations": out, "aggregates": agg, "map_updated": map_updated}
+
+
+@app.get("/api/maps/{map_id}/annotate/data")
+def annotate_map_data(map_id: int, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
+    """Map structure for annotators, so viewers can pick up the owner's live edits."""
+    m = db.query(Map).filter(Map.id == map_id).first()
+    if not m:
+        raise HTTPException(404, "Map not found")
+    if not _can_read_annotations(m, get_user_or_none(session, db)):
+        raise HTTPException(403, "Forbidden")
+    return {"map_data": m.map_data, "updated_at": m.updated_at.isoformat() if m.updated_at else None}
 
 
 class AnnotationCreate(BaseModel):

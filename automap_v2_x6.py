@@ -421,6 +421,7 @@ _HTML = """\
     .g-type-btn[data-type="normative_premise"]       { background: #a88614; }
     .g-type-btn[data-type="intermediate_conclusion"] { background: #1683ab; }
     .g-type-btn[data-type="metaphysical_commitment"] { background: #a3b51b; }
+    .g-type-btn[data-type="objection"]               { background: #c0392b; }
     .g-type-body { margin: 0 0 14px; }
     .g-type-desc { font-size: 10px; color: #4a5568; line-height: 1.45; margin: -2px 0 10px; padding: 0 2px; }
     .g-type-desc .g-ex { color: #718096; font-style: italic; display: block; margin-top: 3px; }
@@ -1794,7 +1795,7 @@ function handleConnectClick(node) {
 // least one empirical and one normative premise. `direction` is reserved so a
 // bottom-up variant can reuse this engine later.
 var _guided = { active: false, direction: 'top_down', phase: 'idle',
-                targetId: null, queue: [], round: [], selType: null, selOptions: [] };
+                targetId: null, queue: [], round: [], selType: null, selOptions: [], roundJoiner: null };
 
 // Template choice-slots (#5): {node_type: {options: [...], correct: idx}}, applied
 // when justifying the claim. Empty {} for non-template maps.
@@ -1860,6 +1861,7 @@ function guidedFillClaim() {
   }
   _guided.phase = 'support';
   _guided.round = [];
+  _guided.roundJoiner = null;
   setTimeout(function() { addClaimRipple(node); _guidedCenterTarget(); }, 60);
   renderGuided();
 }
@@ -1924,6 +1926,7 @@ function guidedStartClaim() {
   _guided.targetId = node.id;
   _guided.phase    = 'support';
   _guided.round    = [];
+  _guided.roundJoiner = null;
   setTimeout(function() { addClaimRipple(node); _guidedCenterTarget(); }, 60);
   renderGuided();
 }
@@ -1945,10 +1948,39 @@ function guidedPickOption(oi) {
 
 function _guidedAddOne(type, content, notes) {
   var node = _guidedAddNode(type, content, notes, _guided.round.length + 1);
-  // Objections attack the target; everything else supports it.
-  _guidedAddEdge(node.id, _guided.targetId, type === 'objection' ? 'attacks' : 'supports');
   _guided.round.push({ id: node.id, type: type, content: content });
-  if (type === 'intermediate_conclusion') _guided.queue.push(node.id);
+  if (type === 'objection') {
+    _guidedAddEdge(node.id, _guided.targetId, 'attacks');   // objections attack, never co-dependent
+  } else {
+    if (type === 'intermediate_conclusion') _guided.queue.push(node.id);
+    _guidedRouteSupport(node.id);
+  }
+}
+
+// Route a support to the current target. As soon as there are ≥2 supports for the
+// same target they become co-dependent: a ∧ joiner appears live and every support
+// (existing + new) is rerouted through it.
+function _guidedRouteSupport(id) {
+  var supIds = _guided.round.filter(function(r) { return r.type !== 'objection'; }).map(function(r) { return r.id; });
+  if (_guided.roundJoiner) {
+    _guidedAddEdge(id, _guided.roundJoiner);
+  } else if (supIds.length >= 2) {
+    var jid  = 'joiner_' + (_nodeCounter++);
+    var tgt  = graph.getCellById(_guided.targetId);
+    var base = tgt ? tgt.position() : { x: 360, y: 200 };
+    graph.addNode(makeNodeDef(
+      { id: jid, type: 'linked_joiner', content: '∧', notes: '', width: _JOINER_SIZE, height: _JOINER_SIZE },
+      { x: base.x, y: base.y + 85 }
+    ));
+    graph.getEdges().forEach(function(e) {
+      if (e.getTargetCellId() === _guided.targetId && supIds.indexOf(e.getSourceCellId()) !== -1) graph.removeEdge(e);
+    });
+    supIds.forEach(function(sid) { _guidedAddEdge(sid, jid); });
+    _guidedAddEdge(jid, _guided.targetId);
+    _guided.roundJoiner = jid;
+  } else {
+    _guidedAddEdge(id, _guided.targetId);   // first support: direct edge
+  }
 }
 
 function guidedAddSupport() {
@@ -1974,36 +2006,14 @@ function guidedAddSupport() {
 }
 
 function guidedDoneNode() {
-  // Everything added to support the node is co-dependent: route the supports
-  // (not the objections, which attack) through a single ∧ joiner when there are ≥2.
-  var supportIds = _guided.round
-    .filter(function(r) { return r.type !== 'objection'; })
-    .map(function(r) { return r.id; });
-  if (supportIds.length >= 2) _guidedMakeLinked(supportIds, _guided.targetId);
+  // Co-dependency is already applied live as supports are added; just move on.
   _guidedAdvance();
 }
 
-// Convert convergent edges (each source → target) into a co-dependent structure:
-// route every source through a single ∧ joiner that then feeds the target.
-function _guidedMakeLinked(srcIds, tgtId) {
-  _pushUndo();
-  graph.getEdges().forEach(function(e) {
-    if (e.getTargetCellId() === tgtId && srcIds.indexOf(e.getSourceCellId()) !== -1) graph.removeEdge(e);
-  });
-  var jid  = 'joiner_' + (_nodeCounter++);
-  var tgt  = graph.getCellById(tgtId);
-  var base = tgt ? tgt.position() : { x: 360, y: 200 };
-  graph.addNode(makeNodeDef(
-    { id: jid, type: 'linked_joiner', content: '∧', notes: '', width: _JOINER_SIZE, height: _JOINER_SIZE },
-    { x: base.x, y: base.y + 85 }
-  ));
-  srcIds.forEach(function(sid) { _guidedAddEdge(sid, jid); });
-  _guidedAddEdge(jid, tgtId);
-}
-
 function _guidedAdvance() {
-  _guided.round   = [];
-  _guided.selType = null;
+  _guided.round       = [];
+  _guided.selType     = null;
+  _guided.roundJoiner = null;
   if (_guided.queue.length) {
     _guided.targetId = _guided.queue.shift();
     _guided.phase    = 'support';

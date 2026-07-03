@@ -469,37 +469,49 @@ def open_template(template_id: int, request: Request, session: str | None = Cook
     tmpl = db.query(Template).filter(Template.id == template_id).first()
     if not tmpl:
         raise HTTPException(404, "Template not found")
+    seed = _template_seed(tmpl)
     m = db.query(Map).filter(Map.user_id == user.id, Map.template_id == tmpl.id).first()
     if not m:
-        # Premises marked with `*` in the template are pre-seeded onto the map,
-        # each connected to the claim with a "supports" step.
-        nodes = [{"id": "C1", "type": "claim", "content": tmpl.claim, "notes": ""}]
-        steps = []
-        slots = tmpl.slots or {}
-        support_ids = []
-        for ntype, pfx in (("empirical_premise", "E"), ("normative_premise", "N")):
-            for i, txt in enumerate((slots.get(ntype) or {}).get("seed", []), 1):
-                nid = f"{pfx}{i}"
-                nodes.append({"id": nid, "type": ntype, "content": txt, "notes": ""})
-                support_ids.append(nid)
-        # Seeded premises are co-dependent: one "supports" step through a ∧ joiner
-        # (to_x6_data expands a linked step with >1 source into the joiner).
-        if support_ids:
-            steps.append({"id": f"S{len(steps) + 1}", "sources": support_ids, "target": "C1",
-                          "linked": len(support_ids) > 1, "relation": "supports"})
-        # Seeded objections attack the claim directly.
-        for i, txt in enumerate((slots.get("objection") or {}).get("seed", []), 1):
-            oid = f"O{i}"
-            nodes.append({"id": oid, "type": "objection", "content": txt, "notes": ""})
-            steps.append({"id": f"S{len(steps) + 1}", "sources": [oid], "target": "C1",
-                          "linked": False, "relation": "attacks"})
-        seed = {"title": tmpl.title, "nodes": nodes, "steps": steps}
         m = Map(user_id=user.id, title=tmpl.title, map_data=seed,
                 course_id=tmpl.course_id, template_id=tmpl.id)
         db.add(m)
         db.commit()
         db.refresh(m)
+    elif _map_is_pristine(m):
+        # The student never touched this map (only the claim, no work): re-apply the
+        # current seed, so a template opened before its `*` premises existed catches up.
+        m.map_data = seed
+        flag_modified(m, "map_data")
+        db.commit()
     return RedirectResponse(f"/map/{m.id}?mode=guided", status_code=302)
+
+
+def _template_seed(tmpl: Template) -> dict:
+    """Build the initial map_data for a template: claim + `*`-seeded premises
+    (co-dependent under a ∧ joiner) + `*`-seeded objections (attacking the claim)."""
+    nodes = [{"id": "C1", "type": "claim", "content": tmpl.claim, "notes": ""}]
+    steps: list = []
+    slots = tmpl.slots or {}
+    support_ids = []
+    for ntype, pfx in (("empirical_premise", "E"), ("normative_premise", "N")):
+        for i, txt in enumerate((slots.get(ntype) or {}).get("seed", []), 1):
+            nid = f"{pfx}{i}"
+            nodes.append({"id": nid, "type": ntype, "content": txt, "notes": ""})
+            support_ids.append(nid)
+    if support_ids:
+        steps.append({"id": f"S{len(steps) + 1}", "sources": support_ids, "target": "C1",
+                      "linked": len(support_ids) > 1, "relation": "supports"})
+    for i, txt in enumerate((slots.get("objection") or {}).get("seed", []), 1):
+        oid = f"O{i}"
+        nodes.append({"id": oid, "type": "objection", "content": txt, "notes": ""})
+        steps.append({"id": f"S{len(steps) + 1}", "sources": [oid], "target": "C1",
+                      "linked": False, "relation": "attacks"})
+    return {"title": tmpl.title, "nodes": nodes, "steps": steps}
+
+
+def _map_is_pristine(m: Map) -> bool:
+    data = m.map_data or {}
+    return len(data.get("nodes", [])) <= 1 and not data.get("steps")
 
 
 @app.get("/teacher/templates", response_class=HTMLResponse)
@@ -574,9 +586,10 @@ _ANNOT_JS = r"""
   function catNames(kind){var out=[];try{var root=(typeof SCHEMES_DATA!=='undefined'?SCHEMES_DATA:{})[kind]||{};Object.keys(root).forEach(function(fk){((root[fk]||{})[kind]||[]).forEach(function(it){if(it&&it.name)out.push(it.name);});});}catch(e){}return out;}
   function ensureDatalist(){[['fallacies','annot-fallacies-list'],['biases','annot-biases-list']].forEach(function(p){if(document.getElementById(p[1]))return;var dl=document.createElement('datalist');dl.id=p[1];catNames(p[0]).forEach(function(n){var o=document.createElement('option');o.value=n;dl.appendChild(o);});document.body.appendChild(dl);});}
   function selFromCell(cell){var kind=(cell.isEdge&&cell.isEdge())?'edge':'node';var d=(cell.getData&&cell.getData())||{};sel={kind:kind,id:cell.id,label:d.content||(kind==='edge'?(T.annot_target_edge||'Step'):cell.id)};}
+  // Viewers can't drag nodes/edges (set the option directly and via the API).
+  function _lockViewer(){ if(typeof graph==='undefined')return; try{ graph.options.interacting={nodeMovable:false,edgeMovable:false,magnetConnectable:false}; if(graph.setInteracting)graph.setInteracting({nodeMovable:false,edgeMovable:false,magnetConnectable:false}); }catch(e){} }
   function enter(){layerOn=true;if(btn)btn.textContent=T.annot_exit;ensureDatalist();
-    if(studentMode){document.body.classList.add('annot-open');if(window.setMode)setMode('annotate');
-      if(typeof graph!=='undefined'&&graph.setInteracting)graph.setInteracting({nodeMovable:false,edgeMovable:false});}
+    if(studentMode){document.body.classList.add('annot-open');if(window.setMode)setMode('annotate');_lockViewer();}
     else{document.body.classList.add('annot-on');renderShare();}
     startPoll();drawLayer();renderThread();}
   function leave(){layerOn=false;if(btn)btn.textContent=T.annot_enter;sel=null;stopPoll();
@@ -610,8 +623,7 @@ _ANNOT_JS = r"""
     if(store.map_updated === _lastMapUp) return;
     _lastMapUp = store.map_updated;
     try{var dr=await api('/api/maps/'+ANNOT.mapId+'/annotate/data');if(!dr.ok)return;var dj=await dr.json();
-      if(dj.map_data && typeof rebuildFromMap==='function'){ rebuildFromMap(dj.map_data);
-        if(typeof graph!=='undefined'&&graph.setInteracting)graph.setInteracting({nodeMovable:false,edgeMovable:false}); }}catch(e){}
+      if(dj.map_data && typeof rebuildFromMap==='function'){ rebuildFromMap(dj.map_data); _lockViewer(); }}catch(e){}
   }
   async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();await _refreshMapIfChanged();drawLayer();if(layerOn&&sel&&!typingInAnnot())renderThread();}catch(e){}}
   // Owner autosave while annotating, so viewers see edits within a poll cycle.
@@ -733,7 +745,8 @@ def _annotation_snippet(ctx: dict, t: dict) -> str:
     cfg = {
         "mapId": ctx["map_id"], "canAdmin": bool(ctx.get("can_admin")),
         "canWrite": bool(ctx.get("can_write")), "auto": bool(ctx.get("auto")),
-        "token": ctx.get("token"), "t": {k: t.get(k, k) for k in keys},
+        "token": ctx.get("token"), "anon": bool(ctx.get("anon")), "owner": bool(ctx.get("owner")),
+        "t": {k: t.get(k, k) for k in keys},
     }
     panel = ('<div id="annot-panel"><div id="annot-head"><span id="annot-title"></span>'
              '<button id="annot-x" onclick="__annotClosePanel()">✕</button></div>'

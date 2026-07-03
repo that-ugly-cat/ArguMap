@@ -501,11 +501,10 @@ def _template_seed(tmpl: Template) -> dict:
     if support_ids:
         steps.append({"id": f"S{len(steps) + 1}", "sources": support_ids, "target": "C1",
                       "linked": len(support_ids) > 1, "relation": "supports"})
+    # Objections are seeded unconnected — their real target is ambiguous, so the
+    # student/teacher wires them by hand in edit mode.
     for i, txt in enumerate((slots.get("objection") or {}).get("seed", []), 1):
-        oid = f"O{i}"
-        nodes.append({"id": oid, "type": "objection", "content": txt, "notes": ""})
-        steps.append({"id": f"S{len(steps) + 1}", "sources": [oid], "target": "C1",
-                      "linked": False, "relation": "attacks"})
+        nodes.append({"id": f"O{i}", "type": "objection", "content": txt, "notes": ""})
     return {"title": tmpl.title, "nodes": nodes, "steps": steps}
 
 
@@ -618,7 +617,7 @@ _ANNOT_JS = r"""
   // Viewers pick up the owner's live map edits: when the map's timestamp changes,
   // refetch the structure and rebuild (the owner is the source, so they don't).
   async function _refreshMapIfChanged(){
-    if(ownerMode || !store.map_updated) return;
+    if(ownerMode || ANNOT.owner || !store.map_updated) return;   // the owner is the source, never rebuild
     if(_lastMapUp === null){ _lastMapUp = store.map_updated; return; }
     if(store.map_updated === _lastMapUp) return;
     _lastMapUp = store.map_updated;

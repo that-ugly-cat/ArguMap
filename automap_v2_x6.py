@@ -1950,7 +1950,7 @@ function _guidedAddOne(type, content, notes) {
   var node = _guidedAddNode(type, content, notes, _guided.round.length + 1);
   _guided.round.push({ id: node.id, type: type, content: content });
   if (type === 'objection') {
-    _guidedAddEdge(node.id, _guided.targetId, 'attacks');   // objections attack, never co-dependent
+    // Added unconnected on purpose — the user links the objection by hand in edit mode.
   } else {
     if (type === 'intermediate_conclusion') _guided.queue.push(node.id);
     _guidedRouteSupport(node.id);

@@ -1,12 +1,12 @@
-# AutoMap — User Guide
+# ArguMap — User Guide
 
-AutoMap helps you build and analyse argument maps. You can generate a map automatically from a text, or construct one by hand, then explore it interactively and debate it with an AI.
+ArguMap helps you build and analyse **argument maps**: a claim, the premises that support it, the objections against it, and the inferential steps that connect them. You can generate a map automatically from a text, build one step by step with a guided walkthrough, or draw one by hand — then explore it, annotate it collaboratively, and debate it with an AI.
 
 ---
 
 ## 1. Signing in
 
-Go to the AutoMap URL provided by your instructor. Enter your email and password. To change the interface language, use the language selector in the top-right corner (EN / IT / DE).
+Go to the ArguMap URL provided by your instructor. Enter your email and password. To change the interface language, use the selector in the top-right corner (EN / IT / DE).
 
 ---
 
@@ -16,102 +16,132 @@ After signing in you land on your personal dashboard.
 
 - **Each card** shows a map title, creation date, and course (if assigned).
 - **Open →** opens the map in the viewer.
-- **Reasoning** shows the step-by-step reasoning the AI produced when the map was generated (only available for pipeline maps).
-- **Text** shows the original source text (only available for pipeline maps).
+- **Reasoning** shows the step-by-step reasoning the AI produced when the map was generated (pipeline maps only).
+- **Text** shows the original source text (pipeline maps only).
 - **✕** deletes the map (asks for confirmation).
 
-### Filter by course
-If you are enrolled in more than one course and have maps in multiple courses, a **Filter by course** dropdown appears above the list. Select a course to show only those maps.
-
-### Move a map to a different course
-Each map card has a small course dropdown on the right. Change it to reassign the map — no page reload needed.
+**Filter by course** — if you have maps in several courses, a dropdown above the list lets you show only one course's maps.
+**Move a map** — each card has a small course dropdown on the right to reassign the map, no reload needed.
 
 ---
 
-## 3. Creating a map — Automatic pipeline
+## 3. Three ways to build a map
 
-Click **Automatic analysis** on the dashboard.
+The dashboard offers three cards:
 
-1. Paste your text in the text area, **or** upload a `.docx` / `.txt` file.
-2. Enter a title for the map.
-3. If you are enrolled in multiple courses, select which course to assign the map to (or leave it unassigned).
-4. Click **Analyse**.
+- **⚡ Analyse a text** — paste a text (or upload a `.docx` / `.txt`) and an LLM pipeline extracts the argument map automatically. It runs four steps (Claim → Nodes → Metaphysical commitments → Inferential steps) and streams its reasoning; when done the map opens in the viewer. Best on 300–800 words of argumentative text.
+- **🧭 Guided construction** — build the map step by step, starting from a claim (see §4).
+- **✏️ Empty map** — start from a blank canvas and build entirely by hand (see §5).
 
-The pipeline runs four steps: Claim → Nodes → Metaphysical commitments → Inferential steps — and streams its reasoning in real time. When finished, the map opens automatically in the viewer.
-
-> The pipeline is geared towards argumentative text. Very short texts may produce sparse maps; very long texts may lose detail.
+You may also receive a **template link** from your instructor (see §6) — opening it drops you straight into guided construction with the claim already set.
 
 ---
 
-## 4. Creating a map — Manual
+## 4. Guided construction
 
-Click **Manual construction** on the dashboard. A blank canvas opens immediately. Build the map node by node using the left panel.
+Guided mode walks you down from the thesis, one inferential step at a time.
+
+1. **State your claim** — the central thesis. (If you opened a template, the claim is already there; you may only need to fill in a highlighted blank.)
+2. **Justify it** — for the highlighted node, answer *"What does this rest on?"*. Choose the kind of support and add it:
+   - **Empirical premise** — a factual claim.
+   - **Normative premise** — an ethical principle or value judgement.
+   - **Intermediate conclusion** — a sub-conclusion that you'll then justify in turn.
+   - **Metaphysical commitment** — a deep background assumption.
+   - **Objection** — a counter-consideration *against* the node (added as a free node; you connect it where it belongs in free editing).
+   Each type comes with a short explanation and an example.
+3. **Co-dependency is automatic** — as soon as you add a *second* support to the same node, they are joined under a **∧ joiner** (they jointly support the target). Add more and they join the same ∧.
+4. **Intermediate conclusions** queue up: when you have one to justify, a **"Done with this node →"** button moves you to it.
+5. **Finish** — once the map holds at least one empirical *and* one normative premise, **Switch to free editing** lights up: click it to unlock the full editor (§5) and refine, reposition, or annotate.
 
 ---
 
 ## 5. The viewer
 
-### Toolbar (top)
+### Toolbar
 | Button | Action |
 |--------|--------|
 | **Dashboard ←** | Return to My Maps |
-| **Course** dropdown | Assign or change the course |
+| **Select / Connect / Guided / Annotate** | Interaction modes (below) |
 | **Save** | Save the current state |
-| **Share** | Generate a read-only link |
-| **Export** | Download as JSON, SVG, or PNG |
-| **?** | Toggle the help panel |
+| **Recap** | Show all fallacies and biases in the map, in two tables |
+| **Import JSON / Clear all** | Load a map file / empty the canvas |
+| **Share / Export** | Read-only link · download as JSON, SVG, or PNG |
+| **?** | Help panel |
 
 ### Panels
-- **Left panel** — add nodes by type (Claim, Normative premise, Empirical premise, Metaphysical commitment, Intermediate conclusion). Also sets the edge router style (Metro / Normal / ER).
-- **Right panel** — edit the selected node or edge: text content, notes, relation type, validity, fallacy, bias, inferential rule, strength. Also contains a searchable reference browser for inferential rules, fallacies, and biases.
+- **Left panel** — add nodes by type; set the edge router style (Metro / Normal / ER).
+- **Right panel** — edit the selected node or edge (content, notes, relation, validity, fallacy, bias, inferential rule, strength) and browse a searchable **reference catalog** of inferential rules, fallacies, and biases.
 - Collapse either panel with the **◄ / ►** tab on its inner edge.
 
 ### Interaction modes
-| Mode | How to activate | What you can do |
-|------|----------------|-----------------|
-| **Select** (default) | Always active unless in Connect mode | Click to select, drag to reposition, `Delete` to remove |
-| **Connect** | Press `c` or click the Connect button | Click a source node, then a target node to create an edge. `Esc` to exit. |
+| Mode | How | What you do |
+|------|-----|-------------|
+| **Select** (default) | — | Click to select, drag to reposition, `Delete` to remove |
+| **Connect** | press `c` | Click a source node, then a target, to create an edge (`Esc` to exit). If either end is an **objection**, the edge defaults to `attacks`. |
+| **Annotate** | toolbar button | Collaborative annotation layer (§7) |
 
-### Node types and colours
-| Type                    | Colour      | Role                                |
-| ----------------------- | ----------- | ----------------------------------- |
-| Claim                   | Dark blue   | The main thesis                     |
-| Normative premise       | Ochre       | Ethical or normative assumption     |
-| Empirical premise       | Burgundy    | Factual or empirical claim          |
-| Metaphysical commitment | Olive green | Background philosophical assumption |
-| Intermediate conclusion | Mid blue    | A sub-conclusion in the chain       |
+### Node types
+| Type | Colour | Role | Key |
+|------|--------|------|:---:|
+| Claim | Dark blue | The main thesis (one per map) | `t` |
+| Normative premise | Ochre | Ethical / normative assumption | `n` |
+| Empirical premise | Burgundy | Factual / empirical claim | `e` |
+| Metaphysical commitment | Olive | Background philosophical assumption | `m` |
+| Intermediate conclusion | Mid blue | A sub-conclusion in the chain | `i` |
+| **Objection** | **Red** | A counter-consideration; connects via `attacks` | `o` |
+| Co-premise joiner (∧) | Grey | Marks premises as jointly required | `j` |
 
-### Edge properties
-- **Relation**: `supports`, `attacks`, or `qualifies`
-- **Linked**: marks co-dependent premises (joint argument, not convergent)
-- **Validity**: valid (solid line) / invalid (dashed) / not evaluated (faded)
-- **Strength** (0–1): controls line thickness
-- Edges with a bias or fallacy show an orange ⚠ chip
+### Edges
+- **Relation**: `supports`, `attacks`, or `qualifies`.
+- **Validity**: valid (solid) / invalid (dashed) / not evaluated (faded).
+- **Strength** (0–1): line thickness.
+- A bias or fallacy on a step shows an orange **⚠** chip.
 
-### Chain highlight
-Click any node or edge to highlight only the inferential chain it belongs to — everything else fades. Click again to reset.
-
-### Node IDs
-Each node displays a small ID (e.g. `N1`, `E2`) in its bottom-right corner for easy reference.
+### Other
+- **Chain highlight** — click a node/edge to fade everything except its inferential chain; click again to reset.
+- **Recap** — the toolbar Recap button lists every step carrying a fallacy or a bias, with the reason, in two tables.
+- Each node shows its **ID** (e.g. `N1`, `O2`) in the bottom-right corner.
 
 ---
 
-## 6. Debate-A-Bot
+## 6. Opening a template link
 
-Open a map in the viewer and click **Debate** in the toolbar.
+Your instructor may send you a link like `.../t/12`. Opening it:
+
+- creates your own copy of the map in your dashboard (one per template — reopening returns the same map);
+- starts you in **guided construction** with the claim pre-filled (you may fill a blank in it);
+- may offer **preset options** to pick from for a premise, and may already show some **given premises** (under a ∧) or **objections** on the map.
+
+From there you build as in §4.
+
+---
+
+## 7. Annotating a shared map
+
+Your instructor may open a map for annotation and share an `.../annotate/...` link. Opening it puts you in annotation mode (you can't move or edit the map, only annotate it):
+
+- **Click a node or edge** to open its annotation thread.
+- **Plausibility (1–5)** — rate how plausible you find it; the aggregate shows on the map as a small distribution bar.
+- **Comment** — add a free-text remark.
+- **Fallacy / Bias** — flag one, typing or picking a name from the catalog. It appears as a coloured chip on the map.
+- You can delete your own annotations. Everyone's annotations refresh live every couple of seconds, and you'll also see the owner's edits to the map appear live.
+
+---
+
+## 8. Debate-A-Bot
+
+Open a map and click **Debate**.
 
 - Choose **Pro** (the AI defends the argument) or **Con** (the AI challenges it).
-- The AI opens with an analytical reading of the map, then responds to your messages.
-- The conversation is not saved — it resets when you close the map.
-
-> The bot stays focused on the argument map. It will not engage with off-topic questions.
+- The AI opens with an analytical reading, then responds to your messages.
+- The conversation isn't saved — it resets when you close the map. The bot stays focused on the argument.
 
 ---
 
-## 7. Account
+## 9. Account
 
-Click **Change password** in the top-right header of the dashboard. Enter your current password, your new password, and confirm it. If you forget your password, contact your instructor or course administrator.
+Click **Change password** in the dashboard header: current password, new password, confirm. If you forget it, contact your instructor.
 
 ---
 
-*AutoMap — built with FastAPI, AntV X6, and Claude (Anthropic)*
+*ArguMap — built with FastAPI, AntV X6, and Claude (Anthropic)*

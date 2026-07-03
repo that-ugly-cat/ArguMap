@@ -1,92 +1,102 @@
-# AutoMap — Teacher Guide
+# ArguMap — Teacher Guide
 
-This guide covers the features available to teachers. Everything in the [User Guide](/docs/user-guide) also applies to you — this document focuses on course management and student oversight.
+This guide covers what teachers can do beyond the [User Guide](/docs/user-guide), which also applies to you: course oversight, guided templates, editing student maps, and running collaborative annotation.
 
 ---
 
 ## 1. Your role
 
-As a teacher you are associated with one or more courses by the administrator. You can:
+An administrator associates you with one or more courses. You can:
 
-- Use AutoMap yourself (pipeline, manual construction, viewer, Debate-A-Bot) — same as students.
-- Access your course page to see enrolled students and their maps.
-- Open any student's map in **read-only mode**.
+- Use ArguMap yourself (pipeline, guided, manual, viewer, Debate-A-Bot) — same as students.
+- Open your course page to see enrolled students and their submitted maps.
+- **Open and edit** any map submitted to your courses.
+- Author **guided templates** and hand them to students.
+- Open a map for **collaborative annotation** and moderate it.
 
-You cannot create or delete users, create courses, or access the admin panel. Contact the administrator for those operations.
+You can't create/delete users or courses, or open the admin panel — contact the administrator for those.
 
----
-
-## 2. Accessing your course
-
-Click **My Courses** in the top-right header of the dashboard. This opens a page listing all courses you are associated with as a teacher. Click **Manage** next to a course to open its detail page.
-
-The course page shows:
-
-- **Enrolled students** — list of all students in the course, with options to add or remove them (admin-only action).
-- **Submitted maps** — all maps assigned to this course by any student, with an **Open →** link for each.
+In the dashboard header you have **My Courses** and **Templates** (and, if you're also an admin, **Admin**).
 
 ---
 
-## 3. Reviewing student maps
+## 2. Your courses
 
-Click **Open →** next to any student's map. The viewer opens in **read-only mode**:
+Click **My Courses**, then **Manage** on a course. The course page shows:
 
-- A banner at the top identifies whose map you are viewing: *👁 Reviewing [Name]'s map*.
-- The **Save** button is hidden — you cannot modify the map.
-- All viewer features are available for your own reading: chain highlight, edge details, node notes, reference browser, Debate-A-Bot.
-
-### What to look for
-- **Claim** (dark blue): is the thesis clearly stated and specific?
-- **Inferential steps**: are the relations (`supports` / `attacks` / `qualifies`) assigned correctly?
-- **Linked premises**: are co-dependent premises grouped (∧ joiner) rather than listed separately?
-- **Validity and annotation**: has the student flagged weak steps with fallacy or bias labels? Are the labels accurate?
-- **Node notes**: are bibliographic references included where expected?
+- **Enrolled students** — the roster (adding/removing students is an admin action).
+- **Submitted maps** — every map assigned to this course, with **Open →** for each.
 
 ---
 
-## 4. Using AutoMap in a course
+## 3. Reviewing and editing student maps
 
-### Suggested workflow — automatic pipeline
-1. **Prepare** — provide students with a 300–800 word argumentative text (policy document, editorial, bioethics case).
-2. **Generate** — students run the automatic pipeline and receive a first-draft map.
-3. **Refine** — students review the draft in the viewer, correct errors, adjust relations, add annotations.
-4. **Submit** — students assign the map to your course (via the course dropdown in the dashboard or viewer toolbar).
-5. **Review** — you open each map from the course page and assess it.
+Click **Open →** on a student's map. A banner marks whose map it is (*👁 Reviewing [Name]'s map*), but you can now **edit it** — fix a relation, restructure, correct a label — and your changes are saved (there's a Save button, and edits also autosave while the annotation layer is on). 
 
-### Suggested workflow — manual construction
-1. **Prepare** — assign a reading or present an argument in class.
-2. **Construct** — students click **Manual construction** and build the map from scratch: add nodes by type (left panel), connect them in Connect mode (`c`), edit relations and annotations in the right panel.
-3. **Submit** — students assign the map to your course.
-4. **Review** — you open each map from the course page and assess it.
+> Editing a student's map **overwrites their submission**. If you want to demonstrate without changing their work, do it on a copy.
 
-The manual workflow is better suited for in-class exercises where you want students to engage with argument structure directly, without a pipeline draft as a starting point. The two workflows can also be combined: generate a draft with the pipeline, then have students reconstruct or challenge it manually.
-
-### Tips
-- The pipeline is a starting point, not a final product. Encourage students to treat the draft critically.
-- The **Debate-A-Bot** (Pro/Con) works well as a formative exercise: students argue against the AI to stress-test their map before submission.
-- The **chain highlight** is useful during in-class discussion: click a node to show only that inferential chain on the projector.
-- Students can export maps as PNG or SVG for inclusion in written assignments.
-
-### Common student errors to watch for
-| Error | What it looks like in the map |
-|-------|-------------------------------|
-| Missing warrant | Edge with no `rule` label, or `rule` = "not specified" |
-| Convergent vs. linked confusion | Two premises attacking/supporting separately when they are actually co-dependent |
-| Circular step | A node appears as both source and target in a chain |
-| Overcrowded claim | Multiple distinct theses merged into one Claim node |
+What to look at: is the **claim** specific? Are **relations** (`supports` / `attacks` / `qualifies`) right? Are co-dependent premises grouped under a **∧ joiner**? Are **objections** (red) present and pointed at the right target? Are weak steps flagged with an accurate **fallacy/bias**? Are **references** in the node notes?
 
 ---
 
-## 5. Contacting the administrator
+## 4. Guided templates
 
-For any of the following, reach out to your course administrator:
+A template is a scaffold you author once and hand to a whole class. Open **Templates** in the header.
 
-- Adding or removing students from the course
-- Creating a new course or reassigning students
-- Resetting a student's password
-- Adjusting token budgets (if the course uses LLM budget limits)
-- Importing students in bulk from an Excel file
+### Create a template
+- **Claim** — the thesis. You can leave a blank in square brackets, e.g. *"`[criterion]` should be the primary criterion for triage"*; the student fills only that blank.
+- **Empirical / Normative / Objection premises** — one entry per line. A plain line becomes a **preset option** the student picks from in guided mode; a line starting with **`*`** is **pre-seeded onto the student's map** — seeded premises land under a ∧ joiner supporting the claim, seeded objections are added as free nodes.
+- **Course** — bind the template to a course (optional).
+
+Click **Create**. You get a shareable link (`.../t/<id>`).
+
+### Distribute it
+Send the link. When a logged-in student opens it, ArguMap creates their own copy of the map in their dashboard (idempotent — reopening returns the same map, so their work is preserved) and drops them into guided construction. Their finished maps land in the bound course, where you review them (§3).
+
+### Edit, push, delete
+- **Edit** — change the claim, options, or seeds. Edits apply to *future* opens; students who already started keep their map (a still-untouched map is refreshed to the latest seed).
+- **Push** — send a copy of a template to another teacher or admin; it appears in their Templates list.
+- **Delete** — removes the template; maps students already created are kept.
+
+### Example (Exercise: choosing an empirical premise)
+Claim (locked): *"Old age should be an exclusionary criterion for triage"*; a `*` normative premise (given, under ∧); three plain empirical options (correlation / high statistical likelihood / strict causation) for the student to choose the one that makes the argument valid.
 
 ---
 
-*AutoMap — built with FastAPI, AntV X6, and Claude (Anthropic)*
+## 5. Collaborative annotation
+
+You can open any map you can edit (your own, or a student's course map) for the whole class to annotate in real time.
+
+### Open a session
+Turn on **Annotate** in the viewer toolbar. In the panel:
+
+- **Open annotation** — generates a shareable `.../annotate/...` link and starts accepting annotations. **Copy link** and share it (students need no account — an anonymous identity is used if they aren't logged in).
+- **Anonymous sharing** — tick this to hide your name from annotators (they see *"someone's map"*).
+- **New session (clear)** — archives the current annotations and starts a clean layer (nothing is deleted).
+- **Detached** — review/clear annotations left orphaned when a node/edge was removed.
+
+### During annotation
+- Students click nodes/edges and add **plausibility (1–5)**, **comments**, and **fallacy/bias** flags (from the catalog). On the map you see a **distribution bar** of plausibility, a comment badge, and coloured fallacy/bias chips — refreshing live.
+- Select a node yourself and its thread appears in the edit panel, alongside the edit fields — so you can read the comments and edit the node in one place.
+- You can **delete any annotation** (moderation), not just your own.
+- Because you can edit the map while annotation is on, your structural changes are **saved automatically and appear live** for everyone viewing the link.
+
+---
+
+## 6. Suggested workflows
+
+- **Pipeline first draft** — students paste a text, get an auto-map, then refine and submit.
+- **Manual / guided from scratch** — better for engaging with structure directly; use a **template** to give everyone the same starting point.
+- **Live class annotation** — project a strong (or flawed) student map, open annotation, and have the class rate plausibility and flag fallacies together; discuss the aggregate.
+- **Debate-A-Bot** — a formative check: students argue against the AI to stress-test a map before submitting.
+- **Chain highlight** — click a node during discussion to isolate its inferential chain on the projector.
+
+---
+
+## 7. Contacting the administrator
+
+For: adding/removing students, creating courses, resetting passwords, token budgets, or bulk Excel import.
+
+---
+
+*ArguMap — built with FastAPI, AntV X6, and Claude (Anthropic)*

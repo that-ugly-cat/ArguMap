@@ -360,9 +360,17 @@ def get_map(map_id: int, user: User = Depends(get_current_user), db: Session = D
 
 @app.put("/api/maps/{map_id}")
 def update_map(map_id: int, body: MapSave, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    m = db.query(Map).filter(Map.id == map_id, Map.user_id == user.id).first()
+    m = db.query(Map).filter(Map.id == map_id).first()
     if not m:
         raise HTTPException(404, "Map not found")
+    # The owner can edit; a teacher of the map's course may also edit student maps.
+    if m.user_id != user.id:
+        ok = False
+        if user.has_permission("view_course_maps") and m.course_id:
+            c = db.query(Course).filter(Course.id == m.course_id).first()
+            ok = bool(c and any(t.id == user.id for t in c.teachers))
+        if not ok:
+            raise HTTPException(403, "Forbidden")
     m.title    = body.title
     m.map_data = body.map_data
     # SQLAlchemy does not track in-place mutations on JSON columns.
@@ -641,7 +649,7 @@ _ANNOT_JS = r"""
     graph.on('edge:click',function(a){if(!layerOn)return;selFromCell(a.edge);renderThread();});
     graph.on('blank:click',function(){sel=null;renderThread();});
   }
-  if(ownerMode && ANNOT.owner && typeof graph!=='undefined'){
+  if(ownerMode && ANNOT.canEdit && typeof graph!=='undefined'){
     ['node:added','node:removed','node:moved','edge:added','edge:removed','node:change:data','edge:change:data','cell:change:position'].forEach(function(ev){
       graph.on(ev, function(){ if(layerOn) _annotAutosave(); });
     });
@@ -654,7 +662,7 @@ _ANNOT_JS = r"""
   // Viewers pick up the owner's live map edits: when the map's timestamp changes,
   // refetch the structure and rebuild (the owner is the source, so they don't).
   async function _refreshMapIfChanged(){
-    if(ownerMode || ANNOT.owner || !store.map_updated) return;   // the owner is the source, never rebuild
+    if(ownerMode || ANNOT.canEdit || !store.map_updated) return;   // the owner is the source, never rebuild
     if(_lastMapUp === null){ _lastMapUp = store.map_updated; return; }
     if(store.map_updated === _lastMapUp) return;
     _lastMapUp = store.map_updated;
@@ -664,7 +672,7 @@ _ANNOT_JS = r"""
   async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();await _refreshMapIfChanged();drawLayer();if(layerOn&&sel&&!typingInAnnot())renderThread();}catch(e){}}
   // Owner autosave while annotating, so viewers see edits within a poll cycle.
   function _annotAutosave(){
-    if(!ANNOT.owner) return;
+    if(!ANNOT.canEdit) return;
     if(_saveTimer) clearTimeout(_saveTimer);
     _saveTimer=setTimeout(async function(){
       try{ if(typeof _captureState!=='function') return; var st=_captureState(); if(!st) return;
@@ -781,7 +789,7 @@ def _annotation_snippet(ctx: dict, t: dict) -> str:
     cfg = {
         "mapId": ctx["map_id"], "canAdmin": bool(ctx.get("can_admin")),
         "canWrite": bool(ctx.get("can_write")), "auto": bool(ctx.get("auto")),
-        "token": ctx.get("token"), "anon": bool(ctx.get("anon")), "owner": bool(ctx.get("owner")),
+        "token": ctx.get("token"), "anon": bool(ctx.get("anon")), "canEdit": bool(ctx.get("can_edit")),
         "t": {k: t.get(k, k) for k in keys},
     }
     panel = ('<div id="annot-panel"><div id="annot-head"><span id="annot-title"></span>'
@@ -792,7 +800,7 @@ def _annotation_snippet(ctx: dict, t: dict) -> str:
             _ANNOT_JS + "\n</script>")
 
 
-def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasoning: bool = False, is_owner: bool = True, owner_name: str = "", lang: str = 'en', annotate: dict | None = None) -> str:
+def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasoning: bool = False, is_owner: bool = True, owner_name: str = "", lang: str = 'en', annotate: dict | None = None, can_edit: bool = False) -> str:
     # Architectural note: this function appends a <script> block to the self-contained
     # HTML produced by generate_html_x6(). It injects backend-aware UI (save, share,
     # debate) that needs to know map_id, permissions, and ownership at serve time.
@@ -864,6 +872,7 @@ def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasonin
   const CAN_DEBATE    = {json.dumps(can_debate)};
   const HAS_REASONING = {json.dumps(has_reasoning)};
   const IS_OWNER      = {json.dumps(is_owner)};
+  const CAN_EDIT      = {json.dumps(can_edit)};
   const OWNER_NAME    = {json.dumps(owner_name)};
 
   // ── Inject buttons into existing toolbar ──────────────────────────────────
@@ -891,7 +900,7 @@ def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasonin
   saveBtn.className = 'tb-btn';
   saveBtn.style.background = '#0a3c8a';
   saveBtn.style.color = '#fff';
-  if (!IS_OWNER) {{ saveBtn.style.display = 'none'; }}
+  if (!IS_OWNER && !CAN_EDIT) {{ saveBtn.style.display = 'none'; }}
   saveBtn.onclick = async function() {{
     const state = _captureState();
     if (!state) return;
@@ -1283,8 +1292,8 @@ def open_map(map_id: int, request: Request, session: str | None = Cookie(default
         can_admin = bool(c and any(tt.id == user.id for tt in c.teachers))
     annotate = {"map_id": m.id, "can_admin": can_admin, "can_write": bool(m.annotate_open),
                 "auto": False, "token": m.annotate_token, "anon": bool(m.annotate_anon),
-                "owner": is_owner} if can_admin else None
-    return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang, annotate=annotate), headers=_NO_CACHE)
+                "can_edit": can_admin} if can_admin else None
+    return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang, annotate=annotate, can_edit=can_admin), headers=_NO_CACHE)
 
 
 # ── Public share ──────────────────────────────────────────────────────────────

@@ -2130,8 +2130,12 @@ function renderGuided() {
       html += '<div class="g-help" style="margin:0">' + escHtml(T.x6_guided_none_yet) + '</div>';
     }
     html += '</div>';
-    html += '<button class="g-btn g-btn-ghost" onclick="guidedDoneNode()"' +
-            (_guided.round.length ? '' : ' disabled') + '>' + escHtml(T.x6_guided_done_node) + '</button>';
+    // "Done with this node" only matters when there's a queued intermediate
+    // conclusion to move on to; otherwise the unlock button is the way to finish.
+    if (_guided.queue.length) {
+      html += '<button class="g-btn g-btn-ghost" onclick="guidedDoneNode()"' +
+              (_guided.round.length ? '' : ' disabled') + '>' + escHtml(T.x6_guided_done_node) + '</button>';
+    }
     html += _guidedQueueHtml();
     html += _guidedUnlockHtml();
   }

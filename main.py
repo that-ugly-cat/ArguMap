@@ -459,6 +459,43 @@ def delete_template(template_id: int, user: User = Depends(get_current_user), db
     return {"ok": True}
 
 
+def _is_teacher_or_admin(u: User) -> bool:
+    return u.has_permission("view_course_maps") or u.has_permission("admin")
+
+
+@app.get("/api/teachers")
+def list_teachers(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Teachers/admins a template can be pushed to."""
+    _require_teacher(user)
+    out = []
+    for u in db.query(User).filter(User.is_active == True).all():  # noqa: E712
+        if u.id != user.id and _is_teacher_or_admin(u):
+            out.append({"id": u.id, "name": u.name or u.email, "email": u.email})
+    return out
+
+
+class TemplatePush(BaseModel):
+    user_id: int
+
+
+@app.post("/api/templates/{template_id}/push")
+def push_template(template_id: int, body: TemplatePush, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Give another teacher/admin their own copy of this template."""
+    _require_teacher(user)
+    t = db.query(Template).filter(Template.id == template_id).first()
+    if not t:
+        raise HTTPException(404, "Template not found")
+    if t.teacher_id != user.id and not user.has_permission("admin"):
+        raise HTTPException(403, "Forbidden")
+    recip = db.query(User).filter(User.id == body.user_id).first()
+    if not recip or not _is_teacher_or_admin(recip):
+        raise HTTPException(400, "Recipient must be a teacher or admin")
+    copy = Template(teacher_id=recip.id, title=t.title, claim=t.claim, slots=t.slots, course_id=None)
+    db.add(copy)
+    db.commit()
+    return {"ok": True}
+
+
 @app.get("/t/{template_id}")
 def open_template(template_id: int, request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     """Student entry point. Get-or-create the caller's Map instance for this

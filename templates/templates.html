@@ -95,6 +95,19 @@
   <div id="tmpl-list"><p class="empty">…</p></div>
 </main>
 
+<div id="push-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:#1a1d27;border:1px solid #2d3148;border-radius:10px;padding:1.3rem 1.4rem;width:92%;max-width:440px">
+    <h3 style="font-size:0.95rem;color:#fff;margin-bottom:0.4rem">{{ t.tmpl_push_title }}</h3>
+    <div class="hint" style="margin-bottom:0.8rem">{{ t.tmpl_push_hint }}</div>
+    <label>{{ t.tmpl_push_to }}</label>
+    <select id="push-select"></select>
+    <div style="display:flex;gap:0.6rem;margin-top:1.1rem">
+      <button class="btn-primary" style="margin-top:0" onclick="confirmPush()">{{ t.tmpl_push }}</button>
+      <button class="btn-sm btn-ghost" onclick="closePush()">{{ t.cancel }}</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const T = {{ t | tojson }};
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -131,6 +144,7 @@ async function loadTemplates() {
         '<input class="tmpl-link" type="text" readonly value="' + escHtml(link) + '">' +
         '<button class="btn-mini" onclick="copyLink(this, \'' + link + '\')">' + escHtml(T.tmpl_copy) + '</button>' +
         '<button class="btn-mini" onclick="editTemplate(' + t.id + ')">' + escHtml(T.tmpl_edit) + '</button>' +
+        '<button class="btn-mini" onclick="pushTemplate(' + t.id + ')">' + escHtml(T.tmpl_push) + '</button>' +
         '<button class="btn-mini btn-del" onclick="delTemplate(' + t.id + ')">' + escHtml(T.tmpl_delete) + '</button>' +
       '</div>' +
     '</div>';
@@ -210,6 +224,35 @@ async function delTemplate(id) {
   if (!confirm(T.tmpl_confirm_delete)) return;
   const r = await fetch('/api/templates/' + id, {method: 'DELETE'});
   if (r.ok) loadTemplates();
+}
+
+let _pushId = null;
+async function pushTemplate(id) {
+  _pushId = id;
+  const sel = document.getElementById('push-select');
+  sel.innerHTML = '';
+  try {
+    const r = await fetch('/api/teachers');
+    if (r.ok) {
+      (await r.json()).forEach(function(u) {
+        const o = document.createElement('option');
+        o.value = u.id; o.textContent = u.name + ' (' + u.email + ')';
+        sel.appendChild(o);
+      });
+    }
+  } catch (e) {}
+  document.getElementById('push-overlay').style.display = 'flex';
+}
+function closePush() { document.getElementById('push-overlay').style.display = 'none'; _pushId = null; }
+async function confirmPush() {
+  const uid = document.getElementById('push-select').value;
+  if (!uid || !_pushId) return;
+  const r = await fetch('/api/templates/' + _pushId + '/push', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({user_id: parseInt(uid)})
+  });
+  closePush();
+  if (r.ok) alert(T.tmpl_pushed);
 }
 
 loadCourses();

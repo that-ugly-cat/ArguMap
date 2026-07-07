@@ -196,6 +196,39 @@ class Annotation(Base):
     updated_at     = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+# ── App config (key-value settings) ────────────────────────────────────────────
+
+class AppConfig(Base):
+    """Global key-value settings editable by admins at runtime.
+
+    Used for self-service registration: `registration_open` ('1'/'0') gates the
+    public /register route, and `welcome_map_id` names the map cloned into each
+    new account (empty = new users start with no maps)."""
+    __tablename__ = "app_config"
+    key   = Column(String, primary_key=True)
+    value = Column(String, nullable=True)
+
+
+DEFAULT_CONFIG = {
+    "registration_open": "0",
+    "welcome_map_id":    "",
+}
+
+
+def get_config(db, key: str, default: str | None = None) -> str | None:
+    row = db.query(AppConfig).filter(AppConfig.key == key).first()
+    return row.value if row else DEFAULT_CONFIG.get(key, default)
+
+
+def set_config(db, key: str, value: str) -> None:
+    row = db.query(AppConfig).filter(AppConfig.key == key).first()
+    if row:
+        row.value = value
+    else:
+        db.add(AppConfig(key=key, value=value))
+    db.commit()
+
+
 # ── Usage log ─────────────────────────────────────────────────────────────────
 
 # Pricing per million tokens (input, output) — update when Anthropic changes rates
@@ -292,6 +325,9 @@ def init_db():
             for name, desc, slugs in SEED_ROLES:
                 perms = db.query(Permission).filter(Permission.slug.in_(slugs)).all()
                 db.add(Role(name=name, description=desc, permissions=perms))
+        for key, value in DEFAULT_CONFIG.items():
+            if db.query(AppConfig).filter(AppConfig.key == key).first() is None:
+                db.add(AppConfig(key=key, value=value))
         db.commit()
     finally:
         db.close()

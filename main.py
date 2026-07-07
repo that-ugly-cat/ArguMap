@@ -14,6 +14,7 @@ Architecture notes:
 - Share tokens: generated lazily on first POST /api/maps/{id}/share (idempotent).
   Revoked by setting share_token=None. Public route /share/{token} requires no login.
 """
+import copy
 import json
 import secrets
 import markdown as _markdown
@@ -38,9 +39,9 @@ from auth import (
     require_permission, verify_password,
 )
 from models import (
-    Annotation, AnnotationSession, Course, Map, Role, Template, UsageLog, User,
+    Annotation, AnnotationSession, AppConfig, Course, Map, Role, Template, UsageLog, User,
     course_teachers,
-    get_db, init_db, log_usage, user_month_cost,
+    get_config, get_db, init_db, log_usage, set_config, user_month_cost,
 )
 from automap_v2_pipeline import extract_map, ingest_bytes
 from automap_v2_x6 import generate_html_x6
@@ -131,7 +132,11 @@ def login_page(request: Request, db: Session = Depends(get_db)):
         except Exception:
             pass
     lang = _get_lang(request)
-    return templates.TemplateResponse("login.html", {"request": request, "t": _locales.get_t(lang), "lang": lang})
+    reg_open = get_config(db, "registration_open") == "1"
+    return templates.TemplateResponse(
+        "login.html",
+        {"request": request, "t": _locales.get_t(lang), "lang": lang, "registration_open": reg_open},
+    )
 
 
 @app.post("/login", response_class=HTMLResponse)
@@ -160,6 +165,89 @@ def login(
 def logout():
     resp = RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
     resp.delete_cookie("session")
+    return resp
+
+
+# ── Self-service registration ──────────────────────────────────────────────────
+
+def _clone_welcome_map(db: Session, new_user_id: int) -> None:
+    """Copy the admin-configured welcome map into a freshly registered account.
+    No-op when no welcome map is configured or the configured map is gone."""
+    wid = get_config(db, "welcome_map_id")
+    if not wid:
+        return
+    src = db.query(Map).filter(Map.id == int(wid)).first()
+    if not src:
+        return
+    clone = Map(
+        user_id=new_user_id,
+        title=src.title,
+        map_data=copy.deepcopy(src.map_data),
+    )
+    db.add(clone)
+    db.commit()
+
+
+@app.get("/register", response_class=HTMLResponse)
+def register_page(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
+    if get_user_or_none(session, db):
+        return RedirectResponse("/app", status_code=302)
+    lang = _get_lang(request)
+    reg_open = get_config(db, "registration_open") == "1"
+    return templates.TemplateResponse(
+        "register.html",
+        {"request": request, "t": _locales.get_t(lang), "lang": lang, "registration_open": reg_open},
+    )
+
+
+@app.post("/register", response_class=HTMLResponse)
+def register(
+    request: Request,
+    name: str = Form(""),
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    lang = _get_lang(request)
+    t    = _locales.get_t(lang)
+
+    def _fail(msg: str, code: int = 400):
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "t": t, "lang": lang, "registration_open": True, "error": msg},
+            status_code=code,
+        )
+
+    if get_config(db, "registration_open") != "1":
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "t": t, "lang": lang, "registration_open": False},
+            status_code=403,
+        )
+
+    email = email.strip().lower()
+    name  = name.strip()
+    if not email or not password:
+        return _fail(t["register_missing"])
+    if len(password) < 8:
+        return _fail(t["register_pw_short"])
+    if db.query(User).filter(User.email == email).first():
+        return _fail(t["register_email_taken"])
+
+    role = db.query(Role).filter(Role.name == "basic").first()
+    if not role:
+        raise HTTPException(500, "Role 'basic' not found")
+
+    u = User(email=email, password_hash=hash_password(password), name=name or None, role=role)
+    db.add(u)
+    db.commit()
+    db.refresh(u)
+
+    _clone_welcome_map(db, u.id)
+
+    token = create_token(u.id)
+    resp = RedirectResponse("/app", status_code=status.HTTP_303_SEE_OTHER)
+    resp.set_cookie("session", token, httponly=True, samesite="lax", max_age=60 * 60 * 24 * 7)
     return resp
 
 
@@ -1694,6 +1782,43 @@ def set_password(uid: int, body: dict, user: User = Depends(require_permission("
         raise HTTPException(400, "Password cannot be empty")
     u.password_hash = hash_password(pw)
     db.commit()
+    return {"ok": True}
+
+
+# ── Registration config (admin) ────────────────────────────────────────────────
+
+class RegistrationConfig(BaseModel):
+    registration_open: bool | None = None
+    welcome_map_id:    int | None = None  # 0 or null clears the welcome map
+
+
+@app.get("/api/admin/config")
+def get_registration_config(user: User = Depends(require_permission("admin")), db: Session = Depends(get_db)):
+    wid = get_config(db, "welcome_map_id")
+    maps = db.query(Map).filter(Map.user_id == user.id).order_by(Map.updated_at.desc()).all()
+    return {
+        "registration_open": get_config(db, "registration_open") == "1",
+        "welcome_map_id":    int(wid) if wid else None,
+        "maps":              [{"id": m.id, "title": m.title} for m in maps],
+    }
+
+
+@app.put("/api/admin/config")
+def update_registration_config(
+    body: RegistrationConfig,
+    user: User = Depends(require_permission("admin")),
+    db: Session = Depends(get_db),
+):
+    if body.registration_open is not None:
+        set_config(db, "registration_open", "1" if body.registration_open else "0")
+    if body.welcome_map_id is not None:
+        if body.welcome_map_id == 0:
+            set_config(db, "welcome_map_id", "")
+        else:
+            m = db.query(Map).filter(Map.id == body.welcome_map_id, Map.user_id == user.id).first()
+            if not m:
+                raise HTTPException(400, "Map not found or not owned by you")
+            set_config(db, "welcome_map_id", str(body.welcome_map_id))
     return {"ok": True}
 
 

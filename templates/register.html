@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'en' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ t.register_page_title }}</title>
+  <link rel="icon" type="image/png" href="/imgs/logo-automap-squared.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f1117;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #e2e8f0;
+      padding: 1.5rem;
+    }
+
+    .panel {
+      width: 380px;
+      max-width: 100%;
+      position: relative;
+    }
+
+    .logo { margin-bottom: 1.6rem; text-align: center; }
+    .logo img { height: 64px; width: auto; }
+
+    .card-title { font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem; }
+    .card-sub   { font-size: 0.8rem; color: #718096; margin-bottom: 1.8rem; }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      color: #a0aec0;
+      margin-bottom: 0.35rem;
+      margin-top: 1rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: #4a6fa5; }
+
+    .btn-submit {
+      width: 100%;
+      margin-top: 1.6rem;
+      padding: 0.65rem;
+      background: #0a3c8a;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-submit:hover { background: #0d4fa8; }
+
+    .error {
+      margin-top: 1rem;
+      padding: 0.6rem 0.8rem;
+      background: #2d1515;
+      border: 1px solid #7b2020;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      color: #fc8181;
+    }
+
+    .foot { margin-top: 1.4rem; font-size: 0.8rem; color: #718096; text-align: center; }
+    .foot a { color: #4a6fa5; text-decoration: none; }
+    .foot a:hover { color: #63b3ed; }
+
+    .closed {
+      padding: 1.2rem;
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: #a0aec0;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .closed h3 { color: #e2e8f0; font-size: 0.95rem; margin-bottom: 0.6rem; }
+
+    .lang-toggle {
+      position: absolute;
+      top: -0.2rem;
+      right: 0;
+      font-size: 0.72rem;
+      color: #4a5568;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 5px;
+      padding: 0.25rem 0.4rem;
+      cursor: pointer;
+    }
+    .lang-toggle:hover { color: #a0aec0; }
+  </style>
+</head>
+<body>
+
+  <div class="panel">
+    <select class="lang-toggle" onchange="location='/lang/'+this.value+'?next=/register'">
+      <option value="en"{% if lang == 'en' %} selected{% endif %}>EN</option>
+      <option value="it"{% if lang == 'it' %} selected{% endif %}>IT</option>
+      <option value="de"{% if lang == 'de' %} selected{% endif %}>DE</option>
+    </select>
+
+    <div class="logo"><img src="/imgs/logo-automap-extended.png" alt="ArguMap"></div>
+
+    {% if not registration_open %}
+    <div class="closed">
+      <h3>{{ t.register_closed_title }}</h3>
+      <p>{{ t.register_closed }}</p>
+      <p style="margin-top:1rem"><a href="/login">{{ t.sign_in }}</a></p>
+    </div>
+    {% else %}
+    <div class="card-title">{{ t.register_title }}</div>
+    <div class="card-sub">{{ t.register_sub }}</div>
+
+    <form method="post" action="/register">
+      <label for="name">{{ t.name }}</label>
+      <input type="text" id="name" name="name" autocomplete="name" autofocus>
+
+      <label for="email">{{ t.email }}</label>
+      <input type="email" id="email" name="email" autocomplete="email" required>
+
+      <label for="password">{{ t.password }}</label>
+      <input type="password" id="password" name="password" autocomplete="new-password" minlength="8" required>
+
+      <button type="submit" class="btn-submit">{{ t.register_submit }}</button>
+
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </form>
+
+    <div class="foot">
+      <a href="/login">{{ t.register_have_account }}</a>
+    </div>
+    {% endif %}
+  </div>
+
+</body>
+</html>

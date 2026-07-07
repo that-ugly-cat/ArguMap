@@ -369,6 +369,30 @@
     </div>
   </div>
 
+  <!-- ── Registration ─────────────────────────────────────────────────────── -->
+  <div class="section">
+    <h2>{{ t.admin_reg_section }}</h2>
+    <div class="card">
+      <div style="display:flex;align-items:flex-start;gap:0.6rem;margin-bottom:1.4rem">
+        <input type="checkbox" id="reg-open" onchange="saveConfig()" style="margin-top:0.15rem">
+        <div>
+          <label for="reg-open" style="margin:0;cursor:pointer;color:#e2e8f0">{{ t.admin_reg_open_label }}</label>
+          <div style="font-size:0.75rem;color:#718096;margin-top:0.2rem">{{ t.admin_reg_open_hint }}</div>
+        </div>
+      </div>
+
+      <div>
+        <label for="welcome-map">{{ t.admin_reg_welcome_label }}</label>
+        <select id="welcome-map" onchange="saveConfig()" style="max-width:420px">
+          <option value="0">{{ t.admin_reg_welcome_none }}</option>
+        </select>
+        <div style="font-size:0.75rem;color:#718096;margin-top:0.4rem">{{ t.admin_reg_welcome_hint }}</div>
+      </div>
+
+      <div class="msg" id="config-msg"></div>
+    </div>
+  </div>
+
   {% endif %}
   <!-- ── Courses ────────────────────────────────────────────────────────────── -->
   <div class="section">
@@ -808,9 +832,43 @@
     loadUsage();
   }
 
+  // ── Registration config ─────────────────────────────────────────────────────
+  async function loadConfig() {
+    const res = await fetch('/api/admin/config');
+    const cfg = await res.json();
+    document.getElementById('reg-open').checked = cfg.registration_open;
+    const sel = document.getElementById('welcome-map');
+    cfg.maps.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.title + ' (#' + m.id + ')';
+      sel.appendChild(opt);
+    });
+    sel.value = cfg.welcome_map_id ? String(cfg.welcome_map_id) : '0';
+  }
+
+  async function saveConfig() {
+    const body = {
+      registration_open: document.getElementById('reg-open').checked,
+      welcome_map_id:    parseInt(document.getElementById('welcome-map').value),
+    };
+    const res = await fetch('/api/admin/config', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (res.ok) {
+      showMsg('config-msg', T.admin_reg_saved);
+    } else {
+      const err = await res.json();
+      showMsg('config-msg', err.detail || T.error, true);
+    }
+  }
+
   if (IS_ADMIN) loadUsers();
   loadCourses();
   if (IS_ADMIN) loadUsage();
+  if (IS_ADMIN) loadConfig();
 
   // ── Import modal ────────────────────────────────────────────────────────────
   function openImportModal() {

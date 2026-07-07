@@ -404,6 +404,12 @@
         <div class="error">{{ error }}</div>
         {% endif %}
       </form>
+
+      {% if registration_open %}
+      <div style="margin-top:1.4rem;font-size:0.8rem;color:#718096;text-align:center">
+        <a href="/register" style="color:#4a6fa5;text-decoration:none">{{ t.register_link }}</a>
+      </div>
+      {% endif %}
     </div>
   </div>
 

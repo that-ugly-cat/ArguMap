@@ -32,7 +32,7 @@ Each map card has a small course dropdown on the right. Change it to reassign th
 
 Click **Automatic analysis** on the dashboard.
 
-1. Paste your text in the text area, **or** upload a `.docx` / `.txt` file.
+1. Paste your text in the text area, **or** upload a `.docx`, `.txt` or `.pdf` file. PDFs are converted to clean text first (references and end matter dropped); a progress bar tracks the conversion, which can take up to a minute.
 2. Enter a title for the map.
 3. If you are enrolled in multiple courses, select which course to assign the map to (or leave it unassigned).
 4. Click **Analyse**.

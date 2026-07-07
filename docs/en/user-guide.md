@@ -29,7 +29,7 @@ After signing in you land on your personal dashboard.
 
 The dashboard offers three cards:
 
-- **⚡ Analyse a text** — paste a text (or upload a `.docx` / `.txt`) and an LLM pipeline extracts the argument map automatically. It runs four steps (Claim → Nodes → Metaphysical commitments → Inferential steps) and streams its reasoning; when done the map opens in the viewer. Best on 300–800 words of argumentative text.
+- **⚡ Analyse a text** — paste a text (or upload a `.docx`, `.txt` or `.pdf`) and an LLM pipeline extracts the argument map automatically. It runs four steps (Claim → Nodes → Metaphysical commitments → Inferential steps) and streams its reasoning; when done the map opens in the viewer. Best on 300–800 words of argumentative text. PDFs are converted to clean text first (references and end matter are dropped) — this can take up to a minute, tracked by a progress bar.
 - **🧭 Guided construction** — build the map step by step, starting from a claim (see §4).
 - **✏️ Empty map** — start from a blank canvas and build entirely by hand (see §5).
 

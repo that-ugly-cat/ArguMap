@@ -149,6 +149,8 @@ Docker volume.
 |---|---|---|
 | `JWT_SECRET` | Yes | Secret key for JWT signing. Min 32 chars, random. |
 | `ANTHROPIC_API_KEY` | Yes | Anthropic API key for pipeline and debate features. |
+| `PAPER2MD_URL` | No | PDF → clean-text service. Defaults to `https://paper2md.borant.eu`. |
+| `PAPER2MD_API_KEY` | No | Optional key for paper2md; raises the upload size cap to 50MB. |
 
 ---
 

@@ -136,6 +136,28 @@
       margin-top: 0.3rem;
       display: none;
     }
+    #convert-progress {
+      display: none;
+      margin-top: 0.6rem;
+    }
+    #convert-progress .bar-track {
+      height: 6px;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    #convert-progress .bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #4a6fa5;
+      transition: width 0.4s linear;
+    }
+    #convert-progress .bar-label {
+      font-size: 0.72rem;
+      color: #718096;
+      margin-top: 0.3rem;
+    }
 
     input[type="text"] {
       width: 100%;
@@ -375,9 +397,13 @@
     <label class="file-upload-label">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       {{ t.app_upload_file }}
-      <input type="file" id="file-input" accept=".txt,.docx">
+      <input type="file" id="file-input" accept=".txt,.docx,.pdf">
     </label>
     <div id="file-upload-name"></div>
+    <div id="convert-progress">
+      <div class="bar-track"><div class="bar-fill" id="convert-bar"></div></div>
+      <div class="bar-label" id="convert-label"></div>
+    </div>
     <input type="text" id="map-title" placeholder="{{ t.app_map_title_ph }}">
     <div id="course-row" style="display:none;margin-top:0.8rem">
       <label style="font-size:0.75rem;color:#a0aec0;display:block;margin-bottom:0.3rem">{{ t.course }}</label>
@@ -453,24 +479,69 @@
 
   loadCourses().then(loadMaps);
 
+  function startConvertProgress(sizeBytes) {
+    // Fake time-estimate bar: paper2md gives no incremental %, so we fill
+    // toward 95% over an estimate (~20s base + ~20s/MB) then jump to 100% on completion.
+    const wrap  = document.getElementById('convert-progress');
+    const bar   = document.getElementById('convert-bar');
+    const label = document.getElementById('convert-label');
+    const estMs = Math.min(180000, 20000 + (sizeBytes / 1048576) * 20000);
+    wrap.style.display = 'block';
+    bar.style.background = '#4a6fa5';
+    bar.style.width = '0%';
+    label.style.color = '#718096';
+    label.textContent = T.app_converting;
+    const t0 = Date.now();
+    const timer = setInterval(() => {
+      const pct = Math.min(95, (Date.now() - t0) / estMs * 100);
+      bar.style.width = pct.toFixed(1) + '%';
+    }, 400);
+    return {
+      done() {
+        clearInterval(timer);
+        bar.style.width = '100%';
+        label.textContent = '';
+        setTimeout(() => { wrap.style.display = 'none'; }, 600);
+      },
+      fail() {
+        clearInterval(timer);
+        bar.style.width = '100%';
+        bar.style.background = '#7b2020';
+        label.textContent = '';
+      },
+    };
+  }
+
   document.getElementById('file-input').addEventListener('change', async function () {
     const file = this.files[0];
     if (!file) return;
+    const isPdf  = /\.pdf$/i.test(file.name);
     const nameEl = document.getElementById('file-upload-name');
-    nameEl.textContent = T.app_uploading;
+    nameEl.textContent = isPdf ? T.app_converting : T.app_uploading;
+    nameEl.style.color = '#718096';
     nameEl.style.display = 'block';
+    const prog = isPdf ? startConvertProgress(file.size) : null;
     const fd = new FormData();
     fd.append('file', file);
     try {
       const res  = await fetch('/api/extract_text', { method: 'POST', body: fd });
-      if (!res.ok) { nameEl.textContent = T.error + ': ' + (await res.json()).detail; nameEl.style.color = '#fc8181'; return; }
+      if (!res.ok) {
+        if (prog) prog.fail();
+        let detail;
+        try { detail = (await res.json()).detail; } catch (e) { detail = res.statusText; }
+        nameEl.textContent = T.error + ': ' + detail;
+        nameEl.style.color = '#fc8181';
+        return;
+      }
       const data = await res.json();
+      if (prog) prog.done();
       document.getElementById('input-text').value = data.text;
       nameEl.textContent = '✓ ' + file.name;
       nameEl.style.color = '#48bb78';
       const titleEl = document.getElementById('map-title');
       if (!titleEl.value.trim()) titleEl.value = file.name.replace(/\.[^.]+$/, '');
     } catch (e) {
+      if (prog) prog.fail();
       nameEl.textContent = T.error;
       nameEl.style.color = '#fc8181';
     }

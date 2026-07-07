@@ -16,12 +16,23 @@ Architecture notes:
 """
 import copy
 import json
+import os
 import secrets
+import httpx
 import markdown as _markdown
 import anthropic as _anthropic
 from pathlib import Path
 
 _DOCS_DIR = Path(__file__).parent / "docs"
+
+# paper2md: PDF → clean text service (Docling pipeline). Used to give the
+# extraction endpoint PDF support the local ingest_bytes lacks. Optional API key
+# raises the upload cap (50MB vs 10MB anonymous) and identifies us in its admin.
+PAPER2MD_URL     = os.environ.get("PAPER2MD_URL", "https://paper2md.borant.eu").rstrip("/")
+PAPER2MD_API_KEY = os.environ.get("PAPER2MD_API_KEY", "")
+# Conversion is a single synchronous Docling call on paper2md's side (~1 min for
+# a large paper) and requests are serialized behind one worker there.
+PAPER2MD_TIMEOUT = 240.0
 
 from fastapi import Cookie, Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy.orm.attributes import flag_modified
@@ -368,16 +379,48 @@ async def run_pipeline_stream(
 
 # ── File extraction ───────────────────────────────────────────────────────────
 
+async def _pdf_to_text(content: bytes, filename: str) -> str:
+    """Extract clean text from a born-digital PDF via the paper2md service.
+    References and back matter are stripped (noise for argument mapping)."""
+    headers = {"X-API-Key": PAPER2MD_API_KEY} if PAPER2MD_API_KEY else {}
+    try:
+        async with httpx.AsyncClient(timeout=PAPER2MD_TIMEOUT) as client:
+            resp = await client.post(
+                f"{PAPER2MD_URL}/convert",
+                files={"file": (filename, content, "application/pdf")},
+                data={"remove_references": "true", "remove_end_matter": "true", "format": "text"},
+                headers=headers,
+            )
+    except httpx.TimeoutException:
+        raise HTTPException(504, "PDF conversion timed out. Try a smaller PDF or retry later.")
+    except httpx.HTTPError:
+        raise HTTPException(502, "PDF conversion service is unreachable.")
+
+    if resp.status_code == 200:
+        return resp.text
+    if resp.status_code == 503:
+        raise HTTPException(503, "PDF conversion service is busy. Please retry in a moment.")
+    # paper2md reports errors as JSON {detail: ...}; fall back to raw body.
+    try:
+        detail = resp.json().get("detail", resp.text)
+    except Exception:
+        detail = resp.text
+    raise HTTPException(502, f"PDF conversion failed: {detail}")
+
+
 @app.post("/api/extract_text")
 async def extract_text(
     file: UploadFile = File(...),
     user: User = Depends(require_permission("pipeline")),
 ):
     content = await file.read()
-    try:
-        text = ingest_bytes(content, file.filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    if Path(file.filename or "").suffix.lower() == ".pdf":
+        text = await _pdf_to_text(content, file.filename)
+    else:
+        try:
+            text = ingest_bytes(content, file.filename)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     return {"text": text, "filename": file.filename}
 
 

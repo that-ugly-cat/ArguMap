@@ -35,6 +35,8 @@ The app listens on `127.0.0.1:8000` (put a reverse proxy in front for HTTPS).
 |----------|----------|---------|
 | `ANTHROPIC_API_KEY` | yes | LLM pipeline + Debate-A-Bot |
 | `JWT_SECRET` | yes | Signs session tokens. Random, min 32 chars. |
+| `PAPER2MD_URL` | no | PDF → text service. Defaults to `https://paper2md.borant.eu`. |
+| `PAPER2MD_API_KEY` | no | Optional key for paper2md; raises upload cap to 50MB. |
 
 See [DEPLOY.md](DEPLOY.md) for full server setup (admin bootstrap, Caddy, updates).
 

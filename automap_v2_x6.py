@@ -651,17 +651,41 @@ _HTML = """\
       height: 28px; width: auto;
     }
     .tb-select:focus { outline: none; border-color: #63b3ed; }
+
+    /* Fit-to-screen button: hidden on desktop, shown on narrow screens. */
+    #btn-fit { display: none; align-items: center; justify-content: center; font-size: 15px; line-height: 1; }
+
+    /* --- Mobile / touch: collapse editing chrome, view maps full-bleed --- */
+    @media (max-width: 820px) {
+      /* Hide all structural/editing chrome; keep title, back, fit, help. */
+      #add-panel, #edit-panel,
+      #left-panel-toggle, #right-panel-toggle,
+      #guided-panel,
+      #mode-hint, #guided-indicator,
+      .desktop-only { display: none !important; }
+      /* Give the canvas the whole width, overriding guided/annotate variants. */
+      #graph-container,
+      body.guided #graph-container,
+      body.annotate #graph-container {
+        left: 0 !important; right: 0 !important; touch-action: none;
+      }
+      #toolbar { gap: 6px; padding: 0 8px; }
+      /* View-only on mobile: title is not editable (no keyboard on tap). */
+      #map-title { font-size: 14px; pointer-events: none; }
+      #legend { transform: scale(.82); transform-origin: bottom left; opacity: .9; }
+      #btn-fit { display: inline-flex !important; }
+    }
   </style>
 </head>
 <body>
 
 <div id="toolbar">
   <h1 id="map-title" contenteditable="true" spellcheck="false">AUTOMAP_TITLE</h1>
-  <div style="display:flex;gap:4px;flex-shrink:0">
+  <div class="desktop-only" style="display:flex;gap:4px;flex-shrink:0">
     <button class="tb-btn" id="btn-undo" onclick="undo()" disabled title="Undo (Ctrl+Z)">&#x21A9;</button>
     <button class="tb-btn" id="btn-redo" onclick="redo()" disabled title="Redo (Ctrl+Y)">&#x21AA;</button>
   </div>
-  <div style="display:flex;gap:4px;flex-shrink:0" id="mode-group">
+  <div class="desktop-only" style="display:flex;gap:4px;flex-shrink:0" id="mode-group">
     <button class="mode-btn active" id="btn-select"  onclick="setMode('select')" data-i18n="x6_select_mode">Select</button>
     <button class="mode-btn"        id="btn-connect" onclick="setMode('connect')" data-i18n="x6_connect_mode">Connect</button>
     <button class="mode-btn"        id="btn-guided"  onclick="startGuided()" data-i18n="x6_guided_btn">Guided</button>
@@ -670,9 +694,10 @@ _HTML = """\
   <span id="guided-indicator" data-i18n="x6_guided_title">Guided construction</span>
   <span id="mode-hint" data-i18n="x6_mode_hint">Click source &#x2192; click target</span>
   <div style="display:flex;gap:4px;flex-shrink:0;margin-left:auto">
-    <button class="tb-btn" onclick="importJSON()" data-i18n="x6_import_json">Import JSON</button>
-    <button class="tb-btn" onclick="openRecap()" data-i18n="x6_recap_btn">Recap</button>
-    <button class="tb-btn tb-danger" onclick="clearAll()" data-i18n="x6_clear_all">Clear all</button>
+    <button class="tb-btn" id="btn-fit" onclick="fitView()" title="Fit map to screen">&#x2922;</button>
+    <button class="tb-btn desktop-only" onclick="importJSON()" data-i18n="x6_import_json">Import JSON</button>
+    <button class="tb-btn desktop-only" onclick="openRecap()" data-i18n="x6_recap_btn">Recap</button>
+    <button class="tb-btn tb-danger desktop-only" onclick="clearAll()" data-i18n="x6_clear_all">Clear all</button>
     <button class="tb-btn tb-help" onclick="openHelp()">?</button>
   </div>
 </div>
@@ -1081,6 +1106,37 @@ const graph = new X6.Graph({
 // Mac trackpad: a pinch gesture arrives as a wheel event with ctrlKey set, which
 // browsers turn into a page zoom. Swallow the default so only the canvas zooms.
 container.addEventListener('wheel', function(e) { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+
+// --- Touch: pinch-to-zoom for read-only viewing on mobile ---
+// One-finger drag on blank canvas already pans via X6's panning. Two fingers zoom.
+(function () {
+  let baseDist = 0, baseScale = 1;
+  function fingerDist(t) {
+    return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  }
+  container.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 2) { baseDist = fingerDist(e.touches); baseScale = graph.zoom(); }
+  }, { passive: true });
+  container.addEventListener('touchmove', function (e) {
+    if (e.touches.length === 2 && baseDist > 0) {
+      e.preventDefault();
+      const next = Math.min(4, Math.max(0.2, baseScale * (fingerDist(e.touches) / baseDist)));
+      graph.zoomTo(next);
+    }
+  }, { passive: false });
+  container.addEventListener('touchend', function (e) {
+    if (e.touches.length < 2) baseDist = 0;
+  }, { passive: true });
+})();
+
+// Fit the whole map into the viewport (mobile toolbar button + auto-fit on small screens).
+function fitView() {
+  try { graph.zoomToFit({ padding: 24, maxScale: 1.1 }); }
+  catch (_) { graph.centerContent(); }
+}
+if (window.matchMedia && window.matchMedia('(max-width: 820px)').matches) {
+  setTimeout(fitView, 300);
+}
 
 // --- Word wrap (mirrors Python _wrap_text) ---
 function wrapText(text, charsPerLine) {

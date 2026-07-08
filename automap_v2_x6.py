@@ -1120,16 +1120,16 @@ container.addEventListener('wheel', function(e) { if (e.ctrlKey) e.preventDefaul
 // ourselves: one finger pans (graph.translate), two fingers pinch-zoom. Handlers
 // run in the capture phase to receive the events before X6's own listeners.
 (function () {
+  const TAP_SLOP = 10;                 // px of movement tolerated before a touch becomes a pan
   function isMobile() { return window.matchMedia && window.matchMedia('(max-width: 820px)').matches; }
   function fingerDist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
-  let gesture = null;                 // 'pan' | 'pinch'
-  let panStart = null, transStart = null;
+  let gesture = null;                  // null | 'tap' | 'pan' | 'pinch'
+  let startPt = null, transStart = null;
   let baseDist = 0, baseScale = 1;
 
-  function startPan(touch) {
-    gesture = 'pan';
-    panStart = { x: touch.clientX, y: touch.clientY };
-    const t = graph.translate();      // X6 getter: { tx, ty }
+  function panRef(touch) {
+    startPt = { x: touch.clientX, y: touch.clientY };
+    const t = graph.translate();       // X6 getter: { tx, ty }
     transStart = { tx: (t && t.tx) || 0, ty: (t && t.ty) || 0 };
   }
 
@@ -1138,7 +1138,8 @@ container.addEventListener('wheel', function(e) { if (e.ctrlKey) e.preventDefaul
     if (e.touches.length === 2) {
       gesture = 'pinch'; baseDist = fingerDist(e.touches); baseScale = graph.zoom();
     } else if (e.touches.length === 1) {
-      startPan(e.touches[0]);
+      gesture = 'tap';                 // undecided: promotes to 'pan' only past the slop
+      panRef(e.touches[0]);
     }
   }, { passive: true, capture: true });
 
@@ -1148,17 +1149,23 @@ container.addEventListener('wheel', function(e) { if (e.ctrlKey) e.preventDefaul
       e.preventDefault();
       const next = Math.min(4, Math.max(0.2, baseScale * (fingerDist(e.touches) / baseDist)));
       graph.zoomTo(next);
-    } else if (gesture === 'pan' && e.touches.length === 1) {
+      return;
+    }
+    if (e.touches.length === 1 && (gesture === 'tap' || gesture === 'pan')) {
+      const dx = e.touches[0].clientX - startPt.x;
+      const dy = e.touches[0].clientY - startPt.y;
+      // Below the slop it's still a tap: don't preventDefault, so X6 gets the
+      // native click (node selection + branch highlight, as on desktop).
+      if (gesture === 'tap' && Math.hypot(dx, dy) < TAP_SLOP) return;
+      gesture = 'pan';
       e.preventDefault();
-      const dx = e.touches[0].clientX - panStart.x;
-      const dy = e.touches[0].clientY - panStart.y;
       graph.translate(transStart.tx + dx, transStart.ty + dy);
     }
   }, { passive: false, capture: true });
 
   container.addEventListener('touchend', function (e) {
     if (e.touches.length === 0) gesture = null;
-    else if (e.touches.length === 1) startPan(e.touches[0]);   // pinch → single finger: rebaseline pan
+    else if (e.touches.length === 1) { gesture = 'pan'; panRef(e.touches[0]); }  // pinch → one finger: pan, no accidental tap
   }, { passive: true, capture: true });
 })();
 

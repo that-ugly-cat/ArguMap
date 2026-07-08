@@ -667,8 +667,11 @@ _HTML = """\
       #graph-container,
       body.guided #graph-container,
       body.annotate #graph-container {
-        left: 0 !important; right: 0 !important; touch-action: none;
+        left: 0 !important; right: 0 !important;
       }
+      /* touch-action is not inherited: kill browser gestures on the canvas AND
+         the SVG that actually receives the touch, so our pan/zoom get the events. */
+      #graph-container, #graph-container * { touch-action: none; }
       #toolbar { gap: 6px; padding: 0 8px; }
       /* View-only on mobile: title is not editable (no keyboard on tap). */
       #map-title { font-size: 14px; pointer-events: none; }
@@ -1112,27 +1115,58 @@ const graph = new X6.Graph({
 // browsers turn into a page zoom. Swallow the default so only the canvas zooms.
 container.addEventListener('wheel', function(e) { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 
-// --- Touch: pinch-to-zoom for read-only viewing on mobile ---
-// One-finger drag on blank canvas already pans via X6's panning. Two fingers zoom.
+// --- Touch gestures for read-only viewing on mobile ---
+// X6's native panning does not fire reliably on touch, so we drive pan/zoom
+// ourselves: one finger pans (graph.translate), two fingers pinch-zoom. Handlers
+// run in the capture phase to receive the events before X6's own listeners.
 (function () {
+  function isMobile() { return window.matchMedia && window.matchMedia('(max-width: 820px)').matches; }
+  function fingerDist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+  let gesture = null;                 // 'pan' | 'pinch'
+  let panStart = null, transStart = null;
   let baseDist = 0, baseScale = 1;
-  function fingerDist(t) {
-    return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+  function startPan(touch) {
+    gesture = 'pan';
+    panStart = { x: touch.clientX, y: touch.clientY };
+    const t = graph.translate();      // X6 getter: { tx, ty }
+    transStart = { tx: (t && t.tx) || 0, ty: (t && t.ty) || 0 };
   }
+
   container.addEventListener('touchstart', function (e) {
-    if (e.touches.length === 2) { baseDist = fingerDist(e.touches); baseScale = graph.zoom(); }
-  }, { passive: true });
+    if (!isMobile()) return;
+    if (e.touches.length === 2) {
+      gesture = 'pinch'; baseDist = fingerDist(e.touches); baseScale = graph.zoom();
+    } else if (e.touches.length === 1) {
+      startPan(e.touches[0]);
+    }
+  }, { passive: true, capture: true });
+
   container.addEventListener('touchmove', function (e) {
-    if (e.touches.length === 2 && baseDist > 0) {
+    if (!isMobile()) return;
+    if (gesture === 'pinch' && e.touches.length === 2 && baseDist > 0) {
       e.preventDefault();
       const next = Math.min(4, Math.max(0.2, baseScale * (fingerDist(e.touches) / baseDist)));
       graph.zoomTo(next);
+    } else if (gesture === 'pan' && e.touches.length === 1) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - panStart.x;
+      const dy = e.touches[0].clientY - panStart.y;
+      graph.translate(transStart.tx + dx, transStart.ty + dy);
     }
-  }, { passive: false });
+  }, { passive: false, capture: true });
+
   container.addEventListener('touchend', function (e) {
-    if (e.touches.length < 2) baseDist = 0;
-  }, { passive: true });
+    if (e.touches.length === 0) gesture = null;
+    else if (e.touches.length === 1) startPan(e.touches[0]);   // pinch → single finger: rebaseline pan
+  }, { passive: true, capture: true });
 })();
+
+// Native X6 panning is mouse-oriented; disable it on mobile so it can't fight
+// the custom touch pan above (desktop keeps drag-to-pan on blank canvas).
+if (window.matchMedia && window.matchMedia('(max-width: 820px)').matches) {
+  try { if (graph.disablePanning) graph.disablePanning(); } catch (e) {}
+}
 
 // Fit the whole map into the viewport (mobile toolbar button + auto-fit on small screens).
 function fitView() {

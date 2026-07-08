@@ -1100,7 +1100,12 @@ const graph = new X6.Graph({
   background:  { color: '#f0f2f5' },
   mousewheel:  { enabled: true, zoomAtMousePosition: true, factor: 1.1, minScale: 0.2, maxScale: 4 },
   panning:     { enabled: true },
-  interacting: { nodeMovable: true, edgeMovable: false },
+  // Evaluated per interaction: on narrow screens nodes are locked so a
+  // one-finger drag always pans instead of moving a node (read-only viewing).
+  interacting: function () {
+    const mobile = window.matchMedia && window.matchMedia('(max-width: 820px)').matches;
+    return { nodeMovable: !mobile, edgeMovable: false };
+  },
 });
 
 // Mac trackpad: a pinch gesture arrives as a wheel event with ctrlKey set, which

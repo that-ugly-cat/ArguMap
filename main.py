@@ -92,8 +92,7 @@ def docs_page(guide: str, request: Request, session: str | None = Cookie(default
         md_text += "\n\n" + en_path.read_text(encoding="utf-8")
     content = _markdown.markdown(md_text, extensions=["tables", "fenced_code"])
     t = _locales.get_t(lang)
-    return templates.TemplateResponse("docs.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "docs.html", {
         "title":   _GUIDE_TITLES[guide],
         "content": content,
         "t":       t,
@@ -119,7 +118,7 @@ def startup():
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 403:
         lang = _get_lang(request)
-        return templates.TemplateResponse("403.html", {"request": request, "t": _locales.get_t(lang), "lang": lang}, status_code=403)
+        return templates.TemplateResponse(request, "403.html", {"t": _locales.get_t(lang), "lang": lang}, status_code=403)
     return await http_exception_handler(request, exc)
 
 
@@ -145,8 +144,9 @@ def login_page(request: Request, db: Session = Depends(get_db)):
     lang = _get_lang(request)
     reg_open = get_config(db, "registration_open") == "1"
     return templates.TemplateResponse(
+        request,
         "login.html",
-        {"request": request, "t": _locales.get_t(lang), "lang": lang, "registration_open": reg_open},
+        {"t": _locales.get_t(lang), "lang": lang, "registration_open": reg_open},
     )
 
 
@@ -162,8 +162,9 @@ def login(
         lang = _get_lang(request)
         t    = _locales.get_t(lang)
         return templates.TemplateResponse(
+            request,
             "login.html",
-            {"request": request, "t": t, "lang": lang, "error": t['login_wrong_pw']},
+            {"t": t, "lang": lang, "error": t['login_wrong_pw']},
             status_code=401,
         )
     token = create_token(user.id)
@@ -206,8 +207,9 @@ def register_page(request: Request, session: str | None = Cookie(default=None), 
     lang = _get_lang(request)
     reg_open = get_config(db, "registration_open") == "1"
     return templates.TemplateResponse(
+        request,
         "register.html",
-        {"request": request, "t": _locales.get_t(lang), "lang": lang, "registration_open": reg_open},
+        {"t": _locales.get_t(lang), "lang": lang, "registration_open": reg_open},
     )
 
 
@@ -224,15 +226,17 @@ def register(
 
     def _fail(msg: str, code: int = 400):
         return templates.TemplateResponse(
+            request,
             "register.html",
-            {"request": request, "t": t, "lang": lang, "registration_open": True, "error": msg},
+            {"t": t, "lang": lang, "registration_open": True, "error": msg},
             status_code=code,
         )
 
     if get_config(db, "registration_open") != "1":
         return templates.TemplateResponse(
+            request,
             "register.html",
-            {"request": request, "t": t, "lang": lang, "registration_open": False},
+            {"t": t, "lang": lang, "registration_open": False},
             status_code=403,
         )
 
@@ -270,8 +274,7 @@ def app_page(request: Request, session: str | None = Cookie(default=None), db: S
     if not user:
         return RedirectResponse("/login", status_code=302)
     lang = _get_lang(request)
-    return templates.TemplateResponse("index.html", {
-        "request":      request,
+    return templates.TemplateResponse(request, "index.html", {
         "user":         user,
         "can_pipeline":        user.has_permission("pipeline"),
         "can_debate":          user.has_permission("debate"),
@@ -696,9 +699,9 @@ def teacher_templates_page(request: Request, session: str | None = Cookie(defaul
         return RedirectResponse("/login", status_code=302)
     lang = _get_lang(request)
     if not user.has_permission("view_course_maps"):
-        return templates.TemplateResponse("403.html", {"request": request, "t": _locales.get_t(lang), "lang": lang}, status_code=403)
-    return templates.TemplateResponse("templates.html", {
-        "request": request, "user": user, "t": _locales.get_t(lang), "lang": lang,
+        return templates.TemplateResponse(request, "403.html", {"t": _locales.get_t(lang), "lang": lang}, status_code=403)
+    return templates.TemplateResponse(request, "templates.html", {
+        "user": user, "t": _locales.get_t(lang), "lang": lang,
     })
 
 
@@ -1740,8 +1743,7 @@ def admin_page(request: Request, session: str | None = Cookie(default=None), db:
     if not user.has_permission("admin") and not user.has_permission("view_course_maps"):
         return RedirectResponse("/app", status_code=302)
     lang = _get_lang(request)
-    return templates.TemplateResponse("admin.html", {
-        "request":  request,
+    return templates.TemplateResponse(request, "admin.html", {
         "user":     user,
         "is_admin": user.has_permission("admin"),
         "t":        _locales.get_t(lang),
@@ -2173,8 +2175,7 @@ def course_page(course_id: int, request: Request, session: str | None = Cookie(d
     if not user.has_permission("admin") and not any(t.id == user.id for t in course.teachers):
         return RedirectResponse("/app", status_code=302)
     lang = _get_lang(request)
-    return templates.TemplateResponse("course.html", {
-        "request":   request,
+    return templates.TemplateResponse(request, "course.html", {
         "course_id": course_id,
         "can_admin": user.has_permission("admin"),
         "t":         _locales.get_t(lang),

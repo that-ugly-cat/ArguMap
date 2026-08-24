@@ -45,6 +45,17 @@ EXPIRE_DAYS = 7
 AUTH_MODE = os.environ.get("AUTH_MODE", "local").strip().lower()
 DEFAULT_ROLE = "basic"
 
+# I ruoli che possono far girare la pipeline, cioe' spendere sulla chiave
+# Anthropic del server. Sono tutti tranne `basic`: il permesso si chiama
+# `pipeline` e ce l'hanno standard, full, teacher e admin.
+RUOLI_CHE_SPENDONO = {"standard", "full", "teacher", "admin"}
+
+# Il tetto mensile che riceve un profilo nato dal gate. `None` non significa
+# zero, significa **nessun limite**: `_check_budget` con None torna subito. Le
+# righe esistenti hanno 200 dal 24/8/2026, e un profilo nuovo che nascesse
+# senza tetto sarebbe l'unico del parco a poter spendere senza fondo.
+TETTO_PREDEFINITO_USD = float(os.environ.get("ARGUMAP_DEFAULT_BUDGET_USD", "200"))
+
 TRUSTED_PROXY = os.environ.get("BORANT_TRUSTED_PROXY", "127.0.0.1")
 BORANT_LOGOUT_URL = os.environ.get("BORANT_LOGOUT_URL", "https://id.borant.eu/logout")
 
@@ -114,16 +125,43 @@ def user_from_gateway(request: Request, db: Session) -> User | None:
                   email, sub, email, sub)
         return None
 
-    role = db.query(Role).filter(Role.name == DEFAULT_ROLE).first()
+    # L'hint del gate propone il ruolo di partenza, e da oggi viene onorato.
+    #
+    # Il §18 nasce proprio da qui e dice di non provisionare mai da un header un
+    # ruolo che spende. La deroga e' deliberata e regge sullo stesso
+    # presupposto di Grant Radar e RoomPulse: quella regola presume la
+    # **registrazione aperta**, dove l'hint porta cio' che ha chiesto *chi
+    # bussa*. Su Borant ID e' spenta, e anche una richiesta d'accesso fa
+    # scegliere il ruolo all'amministratore approvando — quindi qui `teacher` o
+    # `full` ci sono solo perche' un umano li ha digitati.
+    #
+    # Quello che il codice deve comunque e' **rumore**, e un tetto di spesa.
+    hint = (request.headers.get("x-borant-hint", "") or "").strip().lower()
+    nome_ruolo = DEFAULT_ROLE
+    if hint:
+        if db.query(Role).filter(Role.name == hint).first() is not None:
+            nome_ruolo = hint
+        else:
+            log.warning("gateway: hint %r non e' un ruolo di questa app, ricado su %r",
+                        hint, DEFAULT_ROLE)
+
+    role = db.query(Role).filter(Role.name == nome_ruolo).first()
     if role is None:
         log.error("gateway: role %r missing, refusing to create a profile with no role",
-                  DEFAULT_ROLE)
+                  nome_ruolo)
         return None
+    if nome_ruolo in RUOLI_CHE_SPENDONO:
+        log.warning(
+            "gateway: %s (%s) creato come %r su suggerimento del gate. Quel ruolo "
+            "puo' far girare la pipeline, che paga dalla chiave del server. Tetto "
+            "mensile impostato a %.2f USD. Revocare da /admin se non era voluto.",
+            email, sub, nome_ruolo, TETTO_PREDEFINITO_USD)
 
     user = User(email=email,
                 name=request.headers.get("x-borant-name", "").strip() or None,
                 password_hash=hash_password(secrets.token_urlsafe(32)),
-                role=role, borant_sub=sub, is_active=True)
+                role=role, borant_sub=sub, is_active=True,
+                monthly_budget_usd=TETTO_PREDEFINITO_USD)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -132,7 +170,8 @@ def user_from_gateway(request: Request, db: Session) -> User | None:
     # mappa di benvenuto esiste. Non e' decorazione — e' la differenza fra
     # «ecco come si fa» e uno schermo bianco al primo accesso.
     clone_welcome_map(db, user.id)
-    log.info("gateway: new profile for %s (%s) as %s", email, sub, DEFAULT_ROLE)
+    log.info("gateway: new profile for %s (%s) as %s, tetto %.2f USD",
+             email, sub, nome_ruolo, TETTO_PREDEFINITO_USD)
     return user
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

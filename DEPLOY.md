@@ -175,3 +175,57 @@ docker logs argumap          # all logs
 docker logs argumap -f       # follow
 docker logs argumap --tail 50
 ```
+
+## Authentication: two modes, and the one thing to settle first
+
+ArguMap authenticates on its own by default and needs no identity provider.
+`AUTH_MODE=gateway` is a second mode, for a deployment behind an SSO gate that
+speaks the `X-Borant-*` header contract.
+
+```
+AUTH_MODE=local     (default)   email + password against the users table
+AUTH_MODE=gateway               the upstream gate vouches via X-Borant-Sub
+```
+
+**No role that can spend is ever provisioned from a header.** A profile created
+from the gate gets `basic`, whatever the hint says, because `basic` has no
+`pipeline` permission. This matters more here than elsewhere: `_check_budget`
+returns immediately when `monthly_budget_usd` is NULL, and that is the current
+state of every account. Promotion stays a human click in `/admin`.
+
+`BORANT_TRUSTED_PROXY` is measured from the app's log after a real request, not
+deduced. Local login and self-service registration close in `gateway`; logout
+redirects to the gate's `GET /logout`, which asks — the POST is what revokes.
+
+### The annotation endpoints do *optional* authentication
+
+Three endpoints serve **both** an anonymous annotator and a logged-in owner
+through the same URL:
+
+```
+GET    /api/maps/{id}/annotations       anonymous or owner
+POST   /api/maps/{id}/annotations       anonymous or owner
+GET    /api/maps/{id}/annotate/data     anonymous or owner
+PATCH  /api/annotations/{id}            anonymous or owner
+DELETE /api/annotations/{id}            anonymous or owner
+```
+
+and their siblings do not:
+
+```
+GET/DELETE /api/maps/{id}/annotations/detached   owner only
+POST       /api/maps/{id}/annotate/open|close|new-session|anon   owner only
+```
+
+A reverse proxy has two branches, gated and public, and neither fits. Put those
+five on the **public** branch and the identity headers get stripped, so the
+owner becomes anonymous to them — `_can_read_annotations` then refuses once the
+session is closed, which is exactly when a teacher reads the annotations, and
+moderation through `_own_annotation` stops working too. Put them on the
+**gated** branch and anonymous annotation stops working at all.
+
+So this app cannot simply be gated per-path like the others. The clean fix is
+to split the API by audience — give the anonymous annotator its own prefix, and
+leave `/api/maps/...` gated — which is an app change plus a change in the
+annotation client, not a proxy rule. Until that is done, `AUTH_MODE=gateway`
+should not be switched on here.

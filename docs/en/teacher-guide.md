@@ -71,9 +71,12 @@ You can open any map you can edit (your own, or a student's course map) for the 
 Turn on **Annotate** in the viewer toolbar. In the panel:
 
 - **Open annotation** — generates a shareable `.../annotate/...` link and starts accepting annotations. **Copy link** and share it (students need no account — an anonymous identity is used if they aren't logged in).
+- **Class code** — the same session, for a room. The map gets a six-digit code the first time you open annotation and keeps it for good; students go to `.../join`, type the code, and land straight in the annotation. **Show on projector** blows the code and its QR up to full screen — click anywhere to dismiss. Use the code in the room and the link for anything you send in writing.
 - **Anonymous sharing** — tick this to hide your name from annotators (they see *"someone's map"*).
 - **New session (clear)** — archives the current annotations and starts a clean layer (nothing is deleted).
 - **Detached** — review/clear annotations left orphaned when a node/edge was removed.
+
+The code only works while annotation is **open**. Close the session and it stops resolving; reopen it and the same code works again, this year and the next.
 
 ### During annotation
 - Students click nodes/edges and add **plausibility (1–5)**, **comments**, and **fallacy/bias** flags (from the catalog). On the map you see a **distribution bar** of plausibility, a comment badge, and coloured fallacy/bias chips — refreshing live.
@@ -87,7 +90,7 @@ Turn on **Annotate** in the viewer toolbar. In the panel:
 
 - **Pipeline first draft** — students paste a text, get an auto-map, then refine and submit.
 - **Manual / guided from scratch** — better for engaging with structure directly; use a **template** to give everyone the same starting point.
-- **Live class annotation** — project a strong (or flawed) student map, open annotation, and have the class rate plausibility and flag fallacies together; discuss the aggregate.
+- **Live class annotation** — project a strong (or flawed) student map, open annotation, show the class code on the projector, and have the class rate plausibility and flag fallacies together; discuss the aggregate.
 - **Debate-A-Bot** — a formative check: students argue against the AI to stress-test a map before submitting.
 - **Chain highlight** — click a node during discussion to isolate its inferential chain on the projector.
 

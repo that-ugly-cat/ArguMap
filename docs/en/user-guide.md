@@ -118,13 +118,17 @@ From there you build as in §4.
 
 ## 7. Annotating a shared map
 
-Your instructor may open a map for annotation and share an `.../annotate/...` link. Opening it puts you in annotation mode (you can't move or edit the map, only annotate it):
+Your instructor may open a map for annotation and share it in one of two ways: an `.../annotate/...` link, or a **six-digit code** shown on the projector. For the code, go to `.../join` — there is a code box on the front page and on your dashboard — type the six digits, and you land in the same place. Scanning the QR does the same thing.
+
+Either way you are in annotation mode (you can't move or edit the map, only annotate it):
 
 - **Click a node or edge** to open its annotation thread.
 - **Plausibility (1–5)** — rate how plausible you find it; the aggregate shows on the map as a small distribution bar.
 - **Comment** — add a free-text remark.
 - **Fallacy / Bias** — flag one, typing or picking a name from the catalog. It appears as a coloured chip on the map.
 - You can delete your own annotations. Everyone's annotations refresh live every couple of seconds, and you'll also see the owner's edits to the map appear live.
+
+If the code says the exercise is *not open yet*, the instructor hasn't started the session — the digits are fine, the door isn't open.
 
 ---
 

@@ -20,6 +20,14 @@ FastAPI + SQLite + Jinja2, served as a single Docker container. UI in **EN / IT 
 
 Plus a **Debate-A-Bot** that argues for or against a saved map.
 
+## In a classroom
+
+A teacher opens any map they can edit for **live annotation** by the whole room.
+The map carries a **six-digit code**: students go to `/join`, type it (or scan
+the QR), and land in the annotation — no account needed. The code is stable on
+the map, and resolves only while the session is open. `Show on projector` puts
+the code and QR full screen.
+
 ## Quick start (Docker)
 
 ```bash
@@ -37,6 +45,7 @@ The app listens on `127.0.0.1:8000` (put a reverse proxy in front for HTTPS).
 | `JWT_SECRET` | yes | Signs session tokens. Random, min 32 chars. |
 | `PAPER2MD_URL` | no | PDF → text service. Defaults to `https://paper2md.borant.eu`. |
 | `PAPER2MD_API_KEY` | no | Optional key for paper2md; raises upload cap to 50MB. |
+| `ARGUMAP_DB_URL` | no | SQLite URL. Defaults to `sqlite:///./data/maps.db`; `dev-run.py` points it at a throwaway DB. |
 
 See [DEPLOY.md](DEPLOY.md) for full server setup (admin bootstrap, Caddy, updates).
 

@@ -16,3 +16,6 @@ __pycache__/
 .DS_Store
 
 .venv/
+
+# DB e chiavi del lancio locale (dev-run.py)
+.devdata/

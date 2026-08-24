@@ -373,6 +373,17 @@
 
 <main>
 
+  <!-- Chi e' gia' dentro il codice ce l'ha lo stesso: il docente lo proietta e
+       basta, senza dover dire anche «uscite e andate su /join». -->
+  <form method="get" action="/join"
+        style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1.6rem;flex-wrap:wrap">
+    <label style="margin:0;white-space:nowrap;font-size:0.8rem;color:#a0aec0">{{ t.join_have_code }}</label>
+    <input type="text" name="c" inputmode="numeric" autocomplete="off" maxlength="7"
+           placeholder="······" aria-label="{{ t.join_label }}"
+           style="width:9rem;padding:0.35rem 0.6rem;text-align:center;letter-spacing:0.2em;font-weight:700">
+    <button type="submit" class="btn-sm btn-ghost">{{ t.join_btn }}</button>
+  </form>
+
   <h2>{{ t.app_new_map }}</h2>
   <div class="cards">
     {% if can_pipeline %}

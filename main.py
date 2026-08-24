@@ -14,11 +14,15 @@ Architecture notes:
 - Share tokens: generated lazily on first POST /api/maps/{id}/share (idempotent).
   Revoked by setting share_token=None. Public route /share/{token} requires no login.
 """
+import asyncio
 import copy
+import io
 import json
 import os
 import secrets
+import time
 import httpx
+import segno
 import markdown as _markdown
 import anthropic as _anthropic
 from pathlib import Path
@@ -787,6 +791,16 @@ body.annot-open #annot-panel{display:flex}
 #annot-thread{border-top:2px solid #dde1e7;margin-top:12px;padding-top:10px;font-size:12px;color:#2d3748}
 #annot-share{background:#ebf5fb;border:1px solid #bee3f8;border-radius:6px;padding:10px;margin-bottom:12px;font-size:12px}
 .annot-cat-item{font-size:11px;line-height:1.4;padding:5px 0;border-top:1px solid #edf2f7}
+.annot-code{font-size:26px;font-weight:800;letter-spacing:.12em;color:#1a202c;text-align:center;background:#fff;border:1px solid #bee3f8;border-radius:6px;padding:8px 0;margin-bottom:6px}
+.annot-code.off{color:#a0aec0}
+.annot-qr{display:block;width:120px;height:120px;margin:0 auto 6px;background:#fff;border-radius:4px}
+.annot-joinurl{font-size:11px;color:#4a5568;text-align:center;margin-bottom:8px;word-break:break-all}
+#annot-code-ov{position:fixed;inset:0;z-index:9998;background:#0f1117;display:flex;align-items:center;justify-content:center;cursor:zoom-out}
+#annot-code-ov .acv{text-align:center;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+#annot-code-ov .acv-url{font-size:clamp(16px,2.4vw,30px);color:#a0aec0;margin-bottom:10px}
+#annot-code-ov .acv-code{font-size:clamp(56px,12vw,160px);font-weight:800;letter-spacing:.08em;line-height:1;margin-bottom:18px}
+#annot-code-ov .acv-qr{width:clamp(160px,22vw,300px);height:auto;background:#fff;padding:10px;border-radius:8px}
+#annot-code-ov .acv-hint{font-size:clamp(12px,1.4vw,18px);color:#718096;margin-top:14px}
 #annot-cat-view{margin-top:8px}
 .annot-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#718096;font-weight:700;margin:10px 0 4px}
 .annot-target{background:#ebf5fb;border:1px solid #bee3f8;border-radius:6px;padding:8px 10px;margin-bottom:10px}
@@ -965,7 +979,7 @@ _ANNOT_JS = r"""
   window.__annotCatalog=function(){var v=document.getElementById('annot-cat-view');if(!v)return;v.innerHTML=v.innerHTML?'':catalogHtml();};
   function studentHome(){return '<div class="annot-empty">'+esc(T.annot_select_hint)+'</div><button class="annot-mini" style="width:100%;margin-top:10px" onclick="__annotCatalog()">📖 '+esc(T.annot_fallacy)+' / '+esc(T.annot_bias)+'</button><div id="annot-cat-view"></div>';}
   function ownerThreadEl(){var e=document.getElementById('annot-thread');if(!e){var ep=document.getElementById('edit-panel');if(!ep)return null;e=document.createElement('div');e.id='annot-thread';ep.appendChild(e);}return e;}
-  function renderShare(){var ep=document.getElementById('edit-panel');if(!ep)return;var sh=document.getElementById('annot-share');if(!layerOn){if(sh)sh.remove();return;}if(!sh){sh=document.createElement('div');sh.id='annot-share';ep.insertBefore(sh,ep.firstChild);}var h='<div class="annot-lbl">'+esc(T.annot_sharing)+'</div><div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div><button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;h+='<input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button>';h+='<button class="annot-mini" style="width:100%;margin-top:6px" onclick="__annotDetached()">'+esc(T.annot_detached)+'</button>';h+='<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#4a5568;cursor:pointer"><input type="checkbox" '+(ANNOT.anon?'checked':'')+' onclick="__annotAnon(this.checked)" style="width:auto;margin:0"> '+esc(T.annot_anon)+'</label>';sh.innerHTML=h;}
+  function renderShare(){var ep=document.getElementById('edit-panel');if(!ep)return;var sh=document.getElementById('annot-share');if(!layerOn){if(sh)sh.remove();return;}if(!sh){sh=document.createElement('div');sh.id='annot-share';ep.insertBefore(sh,ep.firstChild);}var h='<div class="annot-lbl">'+esc(T.annot_sharing)+'</div><div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div><button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;h+='<input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}if(ANNOT.joinCode){var jc=ANNOT.joinCode;h+='<div class="annot-lbl">'+esc(T.annot_join_code)+'</div><div class="annot-code'+(store.open?'':' off')+'">'+esc(jc.slice(0,3)+' '+jc.slice(3))+'</div><img class="annot-qr" src="/qr/'+jc+'.svg" alt=""><div class="annot-joinurl">'+esc(T.annot_join_hint)+' '+esc(location.host+'/join')+'</div>'+(store.open?'':'<div class="annot-joinurl">'+esc(T.annot_join_off)+'</div>')+'<button class="annot-mini" style="width:100%;margin-bottom:8px" onclick="__annotShowCode()">'+esc(T.annot_show_code)+'</button>';}h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button>';h+='<button class="annot-mini" style="width:100%;margin-top:6px" onclick="__annotDetached()">'+esc(T.annot_detached)+'</button>';h+='<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#4a5568;cursor:pointer"><input type="checkbox" '+(ANNOT.anon?'checked':'')+' onclick="__annotAnon(this.checked)" style="width:auto;margin:0"> '+esc(T.annot_anon)+'</label>';sh.innerHTML=h;}
   function renderThread(){
     if(ownerMode){var el=ownerThreadEl();if(!el)return;if(!sel){el.style.display='none';el.innerHTML='';}else{el.style.display='';el.innerHTML=threadHtml();}}
     else{if(!body)return;body.innerHTML=sel?('<button class="annot-linkbtn" onclick="__annotBack()">'+esc(T.annot_back)+'</button>'+threadHtml()):studentHome();}
@@ -977,8 +991,14 @@ _ANNOT_JS = r"""
     else{var li=document.getElementById(kind==='fallacy'?'annot-fal':'annot-bias');var lb=((li&&li.value)||'').trim();if(!lb)return;post(kind,{label:lb});if(li)li.value='';}
   };
   window.__annotDel=async function(id){await api(BASE_ANNOT+id,{method:'DELETE'});poll();};
-  window.__annotOpenClose=async function(){var path=store.open?'close':'open';var r=await api('/api/maps/'+ANNOT.mapId+'/annotate/'+path,{method:'POST'});if(r.ok){var j=await r.json();if(j.token)ANNOT.token=j.token;store.open=!store.open;if(ownerMode)renderShare();drawLayer();renderThread();}};
+  window.__annotOpenClose=async function(){var path=store.open?'close':'open';var r=await api('/api/maps/'+ANNOT.mapId+'/annotate/'+path,{method:'POST'});if(r.ok){var j=await r.json();if(j.token)ANNOT.token=j.token;if(j.join_code)ANNOT.joinCode=j.join_code;store.open=!store.open;if(ownerMode)renderShare();drawLayer();renderThread();}};
   window.__annotNewSession=async function(){if(!confirm(T.annot_new_session_confirm))return;await api('/api/maps/'+ANNOT.mapId+'/annotate/new-session',{method:'POST'});poll();};
+  window.__annotShowCode=function(){
+    if(!ANNOT.joinCode)return;var jc=ANNOT.joinCode;
+    var ov=document.getElementById('annot-code-ov');
+    if(!ov){ov=document.createElement('div');ov.id='annot-code-ov';ov.onclick=function(){ov.remove();};document.body.appendChild(ov);}
+    ov.innerHTML='<div class="acv"><div class="acv-url">'+esc(location.host+'/join')+'</div><div class="acv-code">'+esc(jc.slice(0,3)+' '+jc.slice(3))+'</div><img class="acv-qr" src="/qr/'+jc+'.svg" alt=""><div class="acv-hint">'+esc(T.annot_join_scan)+'</div></div>';
+  };
   window.__annotCopy=function(btn,link){navigator.clipboard.writeText(link).then(function(){var o=btn.textContent;btn.textContent=T.annot_copied;setTimeout(function(){btn.textContent=o;},1200);});};
   window.__annotDetached=async function(){
     var r=await api('/api/maps/'+ANNOT.mapId+'/annotations/detached');if(!r.ok)return;var j=await r.json();var items=j.annotations||[];
@@ -1007,11 +1027,13 @@ def _annotation_snippet(ctx: dict, t: dict) -> str:
             'annot_target_edge', 'annot_plaus', 'annot_comment_ph', 'annot_add', 'annot_fallacy',
             'annot_bias', 'annot_label_ph', 'annot_none', 'annot_delete', 'annot_closed_note', 'annot_back',
             'annot_detached', 'annot_detached_title', 'annot_detached_none', 'annot_detached_clear',
-            'annot_anon')
+            'annot_anon', 'annot_join_code', 'annot_join_hint', 'annot_join_off', 'annot_show_code',
+            'annot_join_scan')
     cfg = {
         "mapId": ctx["map_id"], "canAdmin": bool(ctx.get("can_admin")),
         "canWrite": bool(ctx.get("can_write")), "auto": bool(ctx.get("auto")),
         "token": ctx.get("token"), "anon": bool(ctx.get("anon")), "canEdit": bool(ctx.get("can_edit")),
+        "joinCode": ctx.get("join_code"),
         "t": {k: t.get(k, k) for k in keys},
     }
     panel = ('<div id="annot-panel"><div id="annot-head"><span id="annot-title"></span>'
@@ -1514,7 +1536,7 @@ def open_map(map_id: int, request: Request, session: str | None = Cookie(default
         can_admin = bool(c and any(tt.id == user.id for tt in c.teachers))
     annotate = {"map_id": m.id, "can_admin": can_admin, "can_write": bool(m.annotate_open),
                 "auto": False, "token": m.annotate_token, "anon": bool(m.annotate_anon),
-                "can_edit": can_admin} if can_admin else None
+                "join_code": m.join_code, "can_edit": can_admin} if can_admin else None
     return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang, annotate=annotate, can_edit=can_admin), headers=_NO_CACHE)
 
 
@@ -1633,10 +1655,12 @@ def annotate_open(map_id: int, user: User = Depends(get_current_user), db: Sessi
     m = _map_annot_admin(map_id, user, db)
     if not m.annotate_token:
         m.annotate_token = secrets.token_urlsafe(16)
+    if not m.join_code:
+        m.join_code = _new_join_code(db)
     m.annotate_open = True
     _active_session(map_id, db, create=True)
     db.commit()
-    return {"token": m.annotate_token, "open": True}
+    return {"token": m.annotate_token, "open": True, "join_code": m.join_code}
 
 
 @app.post("/api/maps/{map_id}/annotate/close")
@@ -1883,6 +1907,160 @@ def annotate_page(token: str, request: Request,
     if not user and not annot_token:
         out.set_cookie("annot_token", secrets.token_urlsafe(12), max_age=60 * 60 * 24 * 365, samesite="lax")
     return out
+
+
+# ── Ingresso con codice ───────────────────────────────────────────────────────
+# In aula il link di annotazione non si detta: trentadue caratteri casuali
+# proiettati sono un giro di «me lo ripeti?» per ogni studente. Il codice fa
+# quello che fa in RoomPulse — sei cifre o un QR e sei dentro — con due
+# differenze che vale la pena avere scritte.
+#
+# **Sei cifre, non cinque.** RoomPulse ne usa cinque. Nella stessa lezione
+# girano i due codici, e prima o poi qualcuno digita l'uno nell'altro: con
+# tagli diversi il codice sbagliato fallisce sulla lunghezza, prima ancora di
+# essere cercato, invece di risolvere per sbaglio su una mappa altrui.
+#
+# **Risolve solo mentre la porta e' aperta.** In RoomPulse un codice indovinato
+# ti fa entrare in un sondaggio; qui ti farebbe entrare nel compito di uno
+# studente. Il codice resta scritto sulla mappa per sempre (una mappa, un
+# codice: chi riusa la mappa l'anno dopo riusa il codice), ma `/join` lo
+# risolve solo con `annotate_open` vero. La superficie enumerabile e' quindi
+# «le mappe aperte all'annotazione adesso», cioe' una manciata durante un'ora
+# di lezione, e il contenuto raggiungibile e' quello che il docente ha appena
+# proiettato a tutta l'aula.
+
+_JOIN_FAILS: dict[str, list] = {}
+_JOIN_FRENO   = 30        # tentativi a vuoto per IP oltre i quali si rallenta
+_JOIN_MURO    = 200       # e oltre i quali si rifiuta
+_JOIN_ATTESA  = 1.0       # secondi di ritardo, in zona freno
+_JOIN_WINDOW  = 60.0      # la finestra, in secondi
+
+
+def _normalizza_codice(raw: str | None) -> str | None:
+    """Le sei cifre, o None se quello che e' arrivato non ha quella forma.
+
+    Tollerante su come lo si scrive (spazi, trattini: `123 456` e `123-456`
+    passano) e rigida sulla forma: sei cifre esatte. Un codice RoomPulse a
+    cinque cifre cade qui, senza toccare il database."""
+    if not raw:
+        return None
+    cifre = "".join(ch for ch in raw if ch.isdigit())
+    return cifre if len(cifre) == 6 else None
+
+
+def _new_join_code(db: Session) -> str:
+    """Sei cifre libere. 100000–999999: mai uno zero in testa, che al
+    proiettore si legge male e nei form si perde."""
+    for _ in range(50):
+        code = str(secrets.randbelow(900000) + 100000)
+        if not db.query(Map).filter(Map.join_code == code).first():
+            return code
+    raise HTTPException(503, "Could not allocate a join code")
+
+
+def _client_ip(request: Request) -> str:
+    """L'indirizzo di chi bussa: il primo salto di X-Forwarded-For quando la
+    richiesta arriva dal proxy di fiducia, altrimenti il peer. Dietro il gate
+    tutti i peer sono il proxy, e senza questa distinzione la soglia sarebbe
+    una soglia sola per tutta l'aula."""
+    from auth import _from_trusted_proxy
+    if _from_trusted_proxy(request):
+        xff = request.headers.get("x-forwarded-for", "")
+        if xff:
+            return xff.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
+def _join_freno(ip: str) -> str:
+    """Quanti tentativi a vuoto ha gia' fatto questo IP nell'ultimo minuto, letto
+    come `'ok'` / `'lento'` / `'muro'`.
+
+    Il freno e' **ritardo**, non porta sbarrata, e la ragione e' l'aula: dietro
+    la NAT dell'universita' quaranta studenti hanno un indirizzo solo, e un
+    rifiuto secco dopo trenta errori di battitura collettivi chiuderebbe fuori
+    anche chi il codice l'ha digitato giusto. Un secondo di attesa non si nota
+    a chi sbaglia una volta, e rende improponibile spazzolare novecentomila
+    combinazioni. Il muro resta per il caso fuori scala, dove non e' piu'
+    plausibile che dall'altra parte ci sia un'aula.
+
+    Sta in memoria e per processo, e conta solo i fallimenti: chi indovina al
+    primo colpo di qui non passa mai."""
+    ora = time.monotonic()
+    tentativi = [x for x in _JOIN_FAILS.get(ip, []) if ora - x < _JOIN_WINDOW]
+    if len(_JOIN_FAILS) > 2000:   # potatura: il dizionario non deve crescere all'infinito
+        for k in [k for k, v in _JOIN_FAILS.items() if not v or ora - v[-1] > _JOIN_WINDOW]:
+            _JOIN_FAILS.pop(k, None)
+    if len(tentativi) >= _JOIN_MURO:
+        return "muro"
+    return "lento" if len(tentativi) >= _JOIN_FRENO else "ok"
+
+
+def _join_segna_buco(ip: str) -> None:
+    ora = time.monotonic()
+    _JOIN_FAILS[ip] = [x for x in _JOIN_FAILS.get(ip, []) if ora - x < _JOIN_WINDOW] + [ora]
+
+
+def _public_base(request: Request) -> str:
+    """L'origine da scrivere nel QR. Uvicorn gira senza `--proxy-headers`,
+    quindi `base_url` direbbe `http://` anche dove il pubblico vede `https://`:
+    lo schema lo prendiamo dal proxy, ma solo se e' quello di fiducia."""
+    from auth import _from_trusted_proxy
+    base = str(request.base_url).rstrip("/")
+    if _from_trusted_proxy(request):
+        proto = request.headers.get("x-forwarded-proto", "").split(",")[0].strip()
+        if proto in ("http", "https"):
+            base = proto + "://" + base.split("://", 1)[1]
+    return base
+
+
+@app.get("/join", response_class=HTMLResponse)
+async def join_page(request: Request, c: str | None = None, db: Session = Depends(get_db)):
+    """Superficie pubblica: la pagina dove si digita il codice, e dove atterra
+    chi ha inquadrato il QR. Chi indovina viene rimbalzato su `/annotate/...`,
+    che e' pubblico anch'esso — l'account serve per costruire mappe, non per
+    annotare quella di qualcun altro.
+
+    E' `async` per via del freno: il ritardo deve cedere il controllo al loop,
+    non tenere occupato un thread del pool. La query che resta e' una lettura
+    indicizzata su una riga, quindi sul loop non pesa."""
+    lang = _get_lang(request)
+    ctx = {"t": _locales.get_t(lang), "lang": lang, "code": (c or "").strip(), "errore": None}
+    if c is None:
+        return templates.TemplateResponse(request, "join.html", ctx, headers=_NO_CACHE)
+    code = _normalizza_codice(c)
+    if code is None:
+        ctx["errore"] = "join_err_shape"
+        return templates.TemplateResponse(request, "join.html", ctx, headers=_NO_CACHE)
+    ip = _client_ip(request)
+    freno = _join_freno(ip)
+    if freno == "muro":
+        ctx["errore"] = "join_err_flood"
+        return templates.TemplateResponse(request, "join.html", ctx, status_code=429, headers=_NO_CACHE)
+    if freno == "lento":
+        await asyncio.sleep(_JOIN_ATTESA)
+    m = db.query(Map).filter(Map.join_code == code).first()
+    if m and m.annotate_open and m.annotate_token:
+        return RedirectResponse(f"/annotate/{m.annotate_token}", status_code=302)
+    _join_segna_buco(ip)
+    # Chiuso e inesistente restano due messaggi diversi: allo studente in aula
+    # «non e' ancora aperto» e «hai sbagliato a digitare» chiedono due gesti
+    # opposti, e confonderli manda tutta la fila a ridigitare per niente.
+    ctx["errore"] = "join_err_closed" if m else "join_err_unknown"
+    return templates.TemplateResponse(request, "join.html", ctx, headers=_NO_CACHE)
+
+
+@app.get("/qr/{code}.svg")
+def join_qr(code: str, request: Request):
+    """Il QR del codice. Non tocca il database di proposito: disegna l'URL e
+    basta, cosi' la pagina del docente non paga una query per ridisegnarlo e
+    da qui non si scopre quali codici esistono."""
+    codice = _normalizza_codice(code)
+    if not codice:
+        raise HTTPException(404, "Not a code")
+    buff = io.BytesIO()
+    segno.make(f"{_public_base(request)}/join?c={codice}").save(buff, kind="svg", scale=6, border=2)
+    return Response(content=buff.getvalue(), media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=3600"})
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────

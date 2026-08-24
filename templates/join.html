@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'en' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ t.join_page_title }}</title>
+  <link rel="icon" type="image/png" href="/imgs/logo-automap-squared.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.2rem;
+      background: #0f1117;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #e2e8f0;
+    }
+
+    .join-card { width: 100%; max-width: 380px; text-align: center; }
+
+    .join-card img.logo { height: 54px; width: auto; margin-bottom: 1.8rem; }
+
+    h1 { font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 0.35rem; }
+
+    .sub { font-size: 0.82rem; color: #718096; line-height: 1.6; margin-bottom: 1.8rem; }
+
+    label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #4a5568;
+      margin-bottom: 0.5rem;
+    }
+
+    input[name="c"] {
+      width: 100%;
+      padding: 0.9rem;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 1.9rem;
+      font-weight: 700;
+      letter-spacing: 0.35em;
+      text-indent: 0.35em;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[name="c"]:focus { border-color: #4a6fa5; }
+
+    button {
+      width: 100%;
+      margin-top: 1.2rem;
+      padding: 0.7rem;
+      background: #0a3c8a;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover { background: #0d4fa8; }
+
+    .error {
+      margin-top: 1.2rem;
+      padding: 0.65rem 0.85rem;
+      background: #2d1515;
+      border: 1px solid #7b2020;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: #fc8181;
+      text-align: left;
+    }
+
+    .foot { margin-top: 2rem; font-size: 0.75rem; }
+    .foot a { color: #4a6fa5; text-decoration: none; }
+    .foot a:hover { color: #63b3ed; }
+
+    .lang { margin-top: 1.4rem; }
+    .lang select {
+      font-size: 0.72rem;
+      color: #4a5568;
+      background: #0f1117;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="join-card">
+    <img class="logo" src="/imgs/logo-automap-extended.png" alt="ArguMap">
+
+    <h1>{{ t.join_title }}</h1>
+    <p class="sub">{{ t.join_sub }}</p>
+
+    <form method="get" action="/join">
+      <label for="c">{{ t.join_label }}</label>
+      <input type="text" id="c" name="c" inputmode="numeric" autocomplete="off"
+             maxlength="7" pattern="[0-9 \-]*" placeholder="······"
+             value="{{ code or '' }}" autofocus required>
+      <button type="submit">{{ t.join_btn }}</button>
+    </form>
+
+    {% if errore %}
+    <div class="error">{{ t[errore] }}</div>
+    {% endif %}
+
+    <div class="foot"><a href="/">{{ t.join_back }} →</a></div>
+
+    <div class="lang">
+      <select onchange="location='/lang/'+this.value+'?next=/join'">
+        <option value="en"{% if lang == 'en' %} selected{% endif %}>EN</option>
+        <option value="it"{% if lang == 'it' %} selected{% endif %}>IT</option>
+        <option value="de"{% if lang == 'de' %} selected{% endif %}>DE</option>
+      </select>
+    </div>
+  </div>
+
+</body>
+</html>

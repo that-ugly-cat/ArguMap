@@ -17,6 +17,7 @@ SQLite silently raises on duplicate columns so failures are caught and ignored.
 This is intentional but fragile: column type changes are not handled.
 """
 import copy
+import os
 from datetime import datetime
 from sqlalchemy import (
     Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String, Text,
@@ -24,7 +25,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
-DATABASE_URL = "sqlite:///./data/maps.db"
+# In produzione la variabile non c'e' e il percorso resta quello del volume
+# Docker. Serve al lancio locale (`dev-run.py`), che punta altrove per non
+# avere modo di toccare i dati veri.
+DATABASE_URL = os.environ.get("ARGUMAP_DB_URL", "sqlite:///./data/maps.db")
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -138,6 +142,10 @@ class Map(Base):
     annotate_token = Column(String, nullable=True, unique=True)
     annotate_open  = Column(Boolean, default=False)
     annotate_anon  = Column(Boolean, default=False)  # hide the owner's name from annotators
+    # Codice d'ingresso in aula: sei cifre, stabile sulla mappa una volta
+    # assegnato. RoomPulse ne usa cinque, quindi un codice sbagliato di taglio
+    # fallisce sulla lunghezza prima ancora di essere cercato.
+    join_code      = Column(String, nullable=True, unique=True)
     created_at   = Column(DateTime, default=datetime.utcnow)
     updated_at   = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -321,6 +329,11 @@ def init_db():
             "ALTER TABLE maps ADD COLUMN annotate_token TEXT",
             "ALTER TABLE maps ADD COLUMN annotate_open BOOLEAN DEFAULT 0",
             "ALTER TABLE maps ADD COLUMN annotate_anon BOOLEAN DEFAULT 0",
+            # 2026-08-24. Come per borant_sub: ALTER TABLE non accetta UNIQUE,
+            # il vincolo arriva come indice parziale.
+            "ALTER TABLE maps ADD COLUMN join_code VARCHAR",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_maps_join_code "
+            "ON maps(join_code) WHERE join_code IS NOT NULL",
             # course_teachers junction table (idempotent)
             """CREATE TABLE IF NOT EXISTS course_teachers (
                 course_id INTEGER NOT NULL REFERENCES courses(id),

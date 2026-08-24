@@ -407,6 +407,20 @@
       <a href="/app" class="btn-submit" style="display:block;text-align:center;text-decoration:none;margin-top:1.4rem">
         {{ t.sign_in }} →
       </a>
+
+      <!-- Ingresso con codice. Sta qui e non dietro il bottone perche' chi
+           arriva in aula col codice non sta cercando di accedere: sta cercando
+           l'esercizio, e `/join` e' pubblico come `/annotate`. -->
+      <div style="margin-top:1.8rem;padding-top:1.4rem;border-top:1px solid #2d3148">
+        <div class="card-sub" style="margin-bottom:0.6rem">{{ t.join_have_code }}</div>
+        <form method="get" action="/join" style="display:flex;gap:0.5rem">
+          <input type="text" name="c" inputmode="numeric" autocomplete="off" maxlength="7"
+                 placeholder="······" aria-label="{{ t.join_label }}"
+                 style="text-align:center;letter-spacing:0.25em;font-weight:700">
+          <button type="submit" class="btn-submit"
+                  style="width:auto;margin-top:0;padding:0.6rem 1rem;flex-shrink:0">{{ t.join_btn }}</button>
+        </form>
+      </div>
     </div>
   </div>
   {% else %}

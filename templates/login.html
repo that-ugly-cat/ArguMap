@@ -380,7 +380,36 @@
     </div>
   </div>
 
-  <!-- ── Login ── -->
+  <!-- ── Login, oppure l'invito a entrare ──────────────────────────────────
+       La stessa pagina fa da vetrina pubblica e da pagina di accesso: la copy,
+       il CSS e i modali sono gli stessi, cambia solo questo pannello. `/`
+       la rende senza form (`mostra_login` falso) e chiunque puo' leggerla;
+       `/login` la rende col form, e in AUTH_MODE=gateway non la rende affatto
+       perche' l'app spegne il proprio login da se'.
+
+       Il bottone punta a `/app`, che e' **gated**, e non a `/login`. Non e' un
+       dettaglio: questa pagina sta sul ramo pubblico, dove l'identita' viene
+       tolta per costruzione, quindi non puo' sapere chi la sta guardando e non
+       ci prova. Puntando a un path gated, il gate (o il login locale, se il
+       gate non c'e') prende in mano la richiesta — e funziona identico nei
+       quattro casi: gated o local, gia' dentro o no. Puntare a `/login`
+       chiuderebbe un anello da cui non si entra. -->
+  {% if not mostra_login %}
+  <div class="login-panel">
+    <select class="lang-toggle" onchange="location='/lang/'+this.value+'?next=/'">
+      <option value="en"{% if lang == 'en' %} selected{% endif %}>EN</option>
+      <option value="it"{% if lang == 'it' %} selected{% endif %}>IT</option>
+      <option value="de"{% if lang == 'de' %} selected{% endif %}>DE</option>
+    </select>
+    <div class="login-card">
+      <div class="card-title">{{ t.login_title }}</div>
+      <div class="card-sub">{{ t.login_sub }}</div>
+      <a href="/app" class="btn-submit" style="display:block;text-align:center;text-decoration:none;margin-top:1.4rem">
+        {{ t.sign_in }} →
+      </a>
+    </div>
+  </div>
+  {% else %}
   <div class="login-panel">
     <select class="lang-toggle" onchange="location='/lang/'+this.value+'?next=/login'">
       <option value="en"{% if lang == 'en' %} selected{% endif %}>EN</option>
@@ -412,6 +441,7 @@
       {% endif %}
     </div>
   </div>
+  {% endif %}
 
   <!-- ── Modal: Automatic analysis ── -->
   <div class="overlay" id="modal-auto">

@@ -135,9 +135,25 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
-@app.get("/", response_class=RedirectResponse)
-def root():
-    return RedirectResponse("/login")
+@app.get("/", response_class=HTMLResponse)
+def root(request: Request):
+    """La vetrina pubblica. Sta fuori dal gate e **non guarda mai chi sei**.
+
+    Non e' pigrizia, e' l'unica forma che si comporta uguale nelle due
+    modalita'. Sul ramo pubblico gli header d'identita' vengono tolti per
+    costruzione, quindi un `{% if user %}` qui sarebbe **sempre falso** in
+    `gateway` e **a volte vero** in `local`: la stessa pagina con due
+    comportamenti. Non guardando, la pagina e' identica ovunque, e il bottone
+    verso `/app` funziona nei quattro casi — gated o local, gia' dentro o no.
+
+    E non mostra numeri interni: quante mappe, quanti utenti, quanti corsi.
+    La legge chiunque passi.
+    """
+    lang = _get_lang(request)
+    return templates.TemplateResponse(request, "login.html", {
+        "t": _locales.get_t(lang), "lang": lang,
+        "mostra_login": False, "registration_open": False,
+    })
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -162,7 +178,8 @@ def login_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         request,
         "login.html",
-        {"t": _locales.get_t(lang), "lang": lang, "registration_open": reg_open},
+        {"t": _locales.get_t(lang), "lang": lang, "registration_open": reg_open,
+         "mostra_login": True},
     )
 
 
@@ -182,7 +199,10 @@ def login(
         return templates.TemplateResponse(
             request,
             "login.html",
-            {"t": t, "lang": lang, "error": t['login_wrong_pw']},
+            # `mostra_login` anche qui, o il form sparirebbe proprio quando
+            # serve: sull'errore di credenziali.
+            {"t": t, "lang": lang, "error": t['login_wrong_pw'],
+             "mostra_login": True},
             status_code=401,
         )
     token = create_token(user.id)

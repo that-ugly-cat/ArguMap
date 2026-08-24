@@ -74,6 +74,29 @@ app.mount("/imgs",   StaticFiles(directory="imgs"),   name="imgs")
 templates = Jinja2Templates(directory="templates")
 
 
+def _al_login(next: str = "/app"):
+    """Dove mandare chi non e' autenticato su una pagina che lo richiede.
+
+    In `gateway` **non** si rimanda a `/login`: quella rotta, in questa
+    modalita', l'app la spegne da se' e rimanda a `/app` — cioe' i due si
+    rimbalzerebbero all'infinito. In produzione non capita, perche' il gate
+    intercetta prima che la richiesta arrivi qui; ma se il matcher del proxy
+    fosse sbagliato si girerebbe a vuoto invece di ricevere un errore, e un
+    anello e' molto piu' difficile da diagnosticare di un codice di stato.
+
+    Il messaggio e' quello di Onopedia, che e' l'unico del perimetro a dire
+    all'**operatore** cosa controllare invece di dire al visitatore che non e'
+    autorizzato: qui l'assenza di identita' significa che il gate non ha
+    girato, ed e' un problema di configurazione, non della persona.
+    """
+    if gateway_mode():
+        raise HTTPException(status_code=503, detail=(
+            "Gateway mode: no valid identity in the X-Borant-* headers. Check "
+            "that the gate really sits in front of this app and that "
+            "BORANT_TRUSTED_PROXY lists the address the proxy connects from."))
+    return RedirectResponse("/login", status_code=302)
+
+
 def _get_lang(request: Request) -> str:
     code = request.cookies.get("lang", _locales.DEFAULT)
     return code if code in _locales.SUPPORTED else _locales.DEFAULT
@@ -308,7 +331,7 @@ def register(
 def app_page(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     user = get_user_or_none(session, db, request)
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        return _al_login()
     lang = _get_lang(request)
     can_manage_courses = user.has_permission("view_course_maps")
 
@@ -743,7 +766,7 @@ def _map_is_pristine(m: Map) -> bool:
 def teacher_templates_page(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     user = get_user_or_none(session, db, request)
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        return _al_login()
     lang = _get_lang(request)
     if not user.has_permission("view_course_maps"):
         return templates.TemplateResponse(request, "403.html", {"t": _locales.get_t(lang), "lang": lang}, status_code=403)
@@ -1454,7 +1477,7 @@ _NO_CACHE = {"Cache-Control": "no-store"}
 def new_map(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     user = get_user_or_none(session, db, request)
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        return _al_login()
     lang = _get_lang(request)
     guided = request.query_params.get("mode") == "guided"
     html = generate_html_x6({}, "output.html", return_html=True, lang=lang, guided=guided)
@@ -1465,7 +1488,7 @@ def new_map(request: Request, session: str | None = Cookie(default=None), db: Se
 def open_map(map_id: int, request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     user = get_user_or_none(session, db, request)
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        return _al_login()
     m = db.query(Map).filter(Map.id == map_id).first()
     if not m:
         raise HTTPException(404, "Map not found")
@@ -1868,7 +1891,7 @@ def annotate_page(token: str, request: Request,
 def admin_page(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     user = get_user_or_none(session, db, request)
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        return _al_login()
     if not user.has_permission("admin") and not user.has_permission("view_course_maps"):
         return RedirectResponse("/app", status_code=302)
     lang = _get_lang(request)
@@ -2295,7 +2318,7 @@ def remove_student(course_id: int, uid: int, user: User = Depends(require_permis
 def course_page(course_id: int, request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     user = get_user_or_none(session, db, request)
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        return _al_login()
     if not user.has_permission("view_course_maps"):
         return RedirectResponse("/app", status_code=302)
     course = db.query(Course).filter(Course.id == course_id).first()

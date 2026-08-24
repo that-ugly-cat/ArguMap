@@ -87,6 +87,10 @@ class User(Base):
     is_active     = Column(Boolean, default=True)
     role_id            = Column(Integer, ForeignKey("roles.id"))
     monthly_budget_usd = Column(Float, nullable=True)
+    # Il subject con cui un gate SSO conosce questa persona. NULL finche' non lo
+    # si lega a mano con map_borant.py, e in AUTH_MODE=local non lo legge
+    # nessuno.
+    borant_sub         = Column(String, unique=True, nullable=True)
     created_at         = Column(DateTime, default=datetime.utcnow)
 
     role    = relationship("Role")
@@ -300,6 +304,11 @@ def init_db():
                 user_id   INTEGER NOT NULL REFERENCES users(id),
                 PRIMARY KEY (course_id, user_id)
             )""",
+            # 2026-08-24. ALTER TABLE non accetta UNIQUE, quindi il vincolo
+            # arriva come indice parziale a parte.
+            "ALTER TABLE users ADD COLUMN borant_sub VARCHAR",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_borant_sub "
+            "ON users(borant_sub) WHERE borant_sub IS NOT NULL",
         ]:
             try:
                 conn.execute(text(stmt))

@@ -46,8 +46,8 @@ from sqlalchemy.orm import Session
 import locales as _locales
 
 from auth import (
-    create_token, get_current_user, get_user_or_none, hash_password,
-    require_permission, verify_password,
+    AUTH_MODE, BORANT_LOGOUT_URL, create_token, gateway_mode, get_current_user,
+    get_user_or_none, hash_password, require_permission, verify_password,
 )
 from models import (
     Annotation, AnnotationSession, AppConfig, Course, Map, Role, Template, UsageLog, User,
@@ -58,6 +58,16 @@ from automap_v2_pipeline import extract_map, ingest_bytes
 from automap_v2_x6 import generate_html_x6
 
 app = FastAPI(title="AutoMap v2")
+@app.get("/healthz")
+def healthz():
+    """Liveness, e sta fuori da qualunque gate.
+
+    Non e' monitoraggio: dice che il processo risponde, non che la pipeline
+    funzioni ne' che qualcuno abbia budget.
+    """
+    return {"ok": True, "mode": AUTH_MODE}
+
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/imgs",   StaticFiles(directory="imgs"),   name="imgs")
 templates = Jinja2Templates(directory="templates")
@@ -78,7 +88,7 @@ _GUIDE_TITLES = {
 def docs_page(guide: str, request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     if guide not in _GUIDE_TITLES:
         raise HTTPException(404, "Guide not found")
-    user = get_user_or_none(session, db)
+    user = get_user_or_none(session, db, request)
     lang = _get_lang(request)
     path = _DOCS_DIR / lang / f"{guide}.md"
     if not path.exists():
@@ -131,6 +141,11 @@ def root():
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, db: Session = Depends(get_db)):
+    # In gateway l'app spegne il proprio login da se', invece di affidarsi al
+    # proxy per nasconderlo: conosce la propria modalita' meglio del reverse
+    # proxy, e la stessa immagine si comporta bene ovunque la si metta.
+    if gateway_mode():
+        return RedirectResponse("/app")
     from auth import _decode_token
     token = request.cookies.get("session")
     if token:
@@ -157,6 +172,8 @@ def login(
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    if gateway_mode():
+        return RedirectResponse("/app", status_code=status.HTTP_303_SEE_OTHER)
     user = db.query(User).filter(User.email == email, User.is_active == True).first()
     if not user or not verify_password(password, user.password_hash):
         lang = _get_lang(request)
@@ -175,7 +192,12 @@ def login(
 
 @app.post("/logout")
 def logout():
-    resp = RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
+    # Buttare il cookie locale non e' uscire, se la sessione la tiene il gate:
+    # al click dopo si rientra. Il bersaglio e' la GET /logout del gate, che
+    # **chiede** — a revocare e' la POST, e deve restare una POST o un
+    # <img src> su un sito qualunque butterebbe fuori chi lo guarda.
+    target = BORANT_LOGOUT_URL if gateway_mode() else "/login"
+    resp = RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
     resp.delete_cookie("session")
     return resp
 
@@ -202,7 +224,7 @@ def _clone_welcome_map(db: Session, new_user_id: int) -> None:
 
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
-    if get_user_or_none(session, db):
+    if get_user_or_none(session, db, request):
         return RedirectResponse("/app", status_code=302)
     lang = _get_lang(request)
     reg_open = get_config(db, "registration_open") == "1"
@@ -232,7 +254,11 @@ def register(
             status_code=code,
         )
 
-    if get_config(db, "registration_open") != "1":
+    # In gateway l'iscrizione locale e' chiusa comunque: lasciarla aperta
+    # vorrebbe dire due anagrafiche in parallelo, e chi si iscrive qui non
+    # passerebbe mai dal gate. Chi deve entrare riceve un account la' e un
+    # grant su questa app.
+    if gateway_mode() or get_config(db, "registration_open") != "1":
         return templates.TemplateResponse(
             request,
             "register.html",
@@ -270,7 +296,7 @@ def register(
 
 @app.get("/app", response_class=HTMLResponse)
 def app_page(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
-    user = get_user_or_none(session, db)
+    user = get_user_or_none(session, db, request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     lang = _get_lang(request)
@@ -642,7 +668,7 @@ def push_template(template_id: int, body: TemplatePush, user: User = Depends(get
 def open_template(template_id: int, request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     """Student entry point. Get-or-create the caller's Map instance for this
     template (idempotent on user+template), then open it in guided mode."""
-    user = get_user_or_none(session, db)
+    user = get_user_or_none(session, db, request)
     if not user:
         return RedirectResponse(f"/login?next=/t/{template_id}", status_code=302)
     tmpl = db.query(Template).filter(Template.id == template_id).first()
@@ -694,7 +720,7 @@ def _map_is_pristine(m: Map) -> bool:
 
 @app.get("/teacher/templates", response_class=HTMLResponse)
 def teacher_templates_page(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
-    user = get_user_or_none(session, db)
+    user = get_user_or_none(session, db, request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     lang = _get_lang(request)
@@ -1387,7 +1413,7 @@ _NO_CACHE = {"Cache-Control": "no-store"}
 
 @app.get("/map", response_class=HTMLResponse)
 def new_map(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
-    user = get_user_or_none(session, db)
+    user = get_user_or_none(session, db, request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     lang = _get_lang(request)
@@ -1398,7 +1424,7 @@ def new_map(request: Request, session: str | None = Cookie(default=None), db: Se
 
 @app.get("/map/{map_id}", response_class=HTMLResponse)
 def open_map(map_id: int, request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
-    user = get_user_or_none(session, db)
+    user = get_user_or_none(session, db, request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     m = db.query(Map).filter(Map.id == map_id).first()
@@ -1496,9 +1522,15 @@ def _active_session(map_id: int, db: Session, create: bool = False):
     return s
 
 
-def _annot_identity(session: str | None, annot_token: str | None, db: Session):
-    """Return (user_id_or_None, token_or_None, display_name)."""
-    user = get_user_or_none(session, db)
+def _annot_identity(session: str | None, annot_token: str | None, db: Session,
+                    request: Request | None = None):
+    """Return (user_id_or_None, token_or_None, display_name).
+
+    `request` is threaded through because in `gateway` the identity lives in
+    headers rather than in the cookie. These routes serve *both* an anonymous
+    annotator and a logged-in owner, which is why the user lookup is optional
+    here and not a dependency."""
+    user = get_user_or_none(session, db, request)
     if user:
         return user.id, None, (user.name or user.email)
     return None, annot_token, "Anonymous"
@@ -1549,12 +1581,13 @@ def _can_read_annotations(m: Map, user: User | None) -> bool:
 
 
 @app.get("/api/maps/{map_id}/annotations")
-def list_annotations(map_id: int, session: str | None = Cookie(default=None),
+def list_annotations(map_id: int, request: Request,
+                     session: str | None = Cookie(default=None),
                      annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     m = db.query(Map).filter(Map.id == map_id).first()
     if not m:
         raise HTTPException(404, "Map not found")
-    user = get_user_or_none(session, db)
+    user = get_user_or_none(session, db, request)
     if not _can_read_annotations(m, user):
         raise HTTPException(403, "Forbidden")
     map_updated = m.updated_at.isoformat() if m.updated_at else None
@@ -1564,7 +1597,7 @@ def list_annotations(map_id: int, session: str | None = Cookie(default=None),
     rows = (db.query(Annotation)
             .filter(Annotation.session_id == s.id, Annotation.status == "visible")
             .order_by(Annotation.created_at.asc()).all())
-    my_uid, my_tok, _ = _annot_identity(session, annot_token, db)
+    my_uid, my_tok, _ = _annot_identity(session, annot_token, db, request)
 
     def is_mine(a):
         return ((a.author_user_id is not None and a.author_user_id == my_uid) or
@@ -1592,12 +1625,13 @@ def list_annotations(map_id: int, session: str | None = Cookie(default=None),
 
 
 @app.get("/api/maps/{map_id}/annotate/data")
-def annotate_map_data(map_id: int, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
+def annotate_map_data(map_id: int, request: Request,
+                      session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     """Map structure for annotators, so viewers can pick up the owner's live edits."""
     m = db.query(Map).filter(Map.id == map_id).first()
     if not m:
         raise HTTPException(404, "Map not found")
-    if not _can_read_annotations(m, get_user_or_none(session, db)):
+    if not _can_read_annotations(m, get_user_or_none(session, db, request)):
         raise HTTPException(403, "Forbidden")
     return {"map_data": m.map_data, "updated_at": m.updated_at.isoformat() if m.updated_at else None}
 
@@ -1610,7 +1644,7 @@ class AnnotationCreate(BaseModel):
 
 
 @app.post("/api/maps/{map_id}/annotations")
-def create_annotation(map_id: int, body: AnnotationCreate, response: Response,
+def create_annotation(map_id: int, body: AnnotationCreate, response: Response, request: Request,
                       session: str | None = Cookie(default=None),
                       annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     m = db.query(Map).filter(Map.id == map_id).first()
@@ -1620,7 +1654,7 @@ def create_annotation(map_id: int, body: AnnotationCreate, response: Response,
         raise HTTPException(403, "Annotation is closed")
     if body.target_kind not in ("node", "edge") or body.kind not in ("comment", "plausibility", "fallacy", "bias"):
         raise HTTPException(400, "Invalid annotation")
-    my_uid, my_tok, my_name = _annot_identity(session, annot_token, db)
+    my_uid, my_tok, my_name = _annot_identity(session, annot_token, db, request)
     if my_uid is None and not my_tok:
         my_tok = secrets.token_urlsafe(12)
         response.set_cookie("annot_token", my_tok, max_age=60 * 60 * 24 * 365, samesite="lax")
@@ -1644,15 +1678,16 @@ def create_annotation(map_id: int, body: AnnotationCreate, response: Response,
     return {"id": a.id}
 
 
-def _own_annotation(ann_id: int, session, annot_token, db) -> Annotation:
+def _own_annotation(ann_id: int, session, annot_token, db,
+                    request: Request | None = None) -> Annotation:
     a = db.query(Annotation).filter(Annotation.id == ann_id).first()
     if not a:
         raise HTTPException(404, "Annotation not found")
-    my_uid, my_tok, _ = _annot_identity(session, annot_token, db)
+    my_uid, my_tok, _ = _annot_identity(session, annot_token, db, request)
     mine = ((a.author_user_id is not None and a.author_user_id == my_uid) or
             (a.author_token is not None and my_tok is not None and a.author_token == my_tok))
     if not mine:
-        user = get_user_or_none(session, db)
+        user = get_user_or_none(session, db, request)
         m = db.query(Map).filter(Map.id == a.map_id).first()
         if not (user and m and (m.user_id == user.id or user.has_permission("view_course_maps"))):
             raise HTTPException(403, "Forbidden")
@@ -1660,9 +1695,10 @@ def _own_annotation(ann_id: int, session, annot_token, db) -> Annotation:
 
 
 @app.patch("/api/annotations/{ann_id}")
-def update_annotation(ann_id: int, body: dict, session: str | None = Cookie(default=None),
+def update_annotation(ann_id: int, body: dict, request: Request,
+                      session: str | None = Cookie(default=None),
                       annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):
-    a = _own_annotation(ann_id, session, annot_token, db)
+    a = _own_annotation(ann_id, session, annot_token, db, request)
     if "payload" in body:
         a.payload = body["payload"]
     db.commit()
@@ -1670,9 +1706,10 @@ def update_annotation(ann_id: int, body: dict, session: str | None = Cookie(defa
 
 
 @app.delete("/api/annotations/{ann_id}")
-def delete_annotation(ann_id: int, session: str | None = Cookie(default=None),
+def delete_annotation(ann_id: int, request: Request,
+                      session: str | None = Cookie(default=None),
                       annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):
-    a = _own_annotation(ann_id, session, annot_token, db)
+    a = _own_annotation(ann_id, session, annot_token, db, request)
     db.delete(a); db.commit()
     return {"ok": True}
 
@@ -1715,7 +1752,7 @@ def annotate_page(token: str, request: Request,
     m = db.query(Map).filter(Map.annotate_token == token).first()
     if not m:
         raise HTTPException(404, "Annotation link not found")
-    user = get_user_or_none(session, db)
+    user = get_user_or_none(session, db, request)
     lang = _get_lang(request)
     html = generate_html_x6(m.map_data, "output.html", return_html=True, lang=lang)
     ctx = {"map_id": m.id, "can_admin": False, "can_write": bool(m.annotate_open),
@@ -1737,7 +1774,7 @@ def annotate_page(token: str, request: Request,
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin_page(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
-    user = get_user_or_none(session, db)
+    user = get_user_or_none(session, db, request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     if not user.has_permission("admin") and not user.has_permission("view_course_maps"):
@@ -2164,7 +2201,7 @@ def remove_student(course_id: int, uid: int, user: User = Depends(require_permis
 
 @app.get("/admin/courses/{course_id}", response_class=HTMLResponse)
 def course_page(course_id: int, request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
-    user = get_user_or_none(session, db)
+    user = get_user_or_none(session, db, request)
     if not user:
         return RedirectResponse("/login", status_code=302)
     if not user.has_permission("view_course_maps"):

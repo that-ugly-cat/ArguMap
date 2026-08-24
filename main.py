@@ -207,6 +207,13 @@ def logout():
 
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
+    # In gateway la POST rifiuta con 403, ma senza questa riga la GET
+    # continuava a servire un modulo con la casella della password dentro: un
+    # vicolo cieco che sembra vivo, e lo si scopre solo dopo aver scelto una
+    # password e premuto il bottone. Chi deve entrare riceve un account sul
+    # gate e un grant su questa app, non si iscrive da qui.
+    if gateway_mode():
+        return RedirectResponse("/app", status_code=302)
     if get_user_or_none(session, db, request):
         return RedirectResponse("/app", status_code=302)
     lang = _get_lang(request)

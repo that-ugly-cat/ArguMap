@@ -217,15 +217,35 @@ GET/DELETE /api/maps/{id}/annotations/detached   owner only
 POST       /api/maps/{id}/annotate/open|close|new-session|anon   owner only
 ```
 
-A reverse proxy has two branches, gated and public, and neither fits. Put those
-five on the **public** branch and the identity headers get stripped, so the
-owner becomes anonymous to them — `_can_read_annotations` then refuses once the
-session is closed, which is exactly when a teacher reads the annotations, and
-moderation through `_own_annotation` stops working too. Put them on the
-**gated** branch and anonymous annotation stops working at all.
+**Solved on 24/8/2026 by splitting the API by audience.** The same handlers now
+answer on two prefixes, and the prefix decides the identity:
 
-So this app cannot simply be gated per-path like the others. The clean fix is
-to split the API by audience — give the anonymous annotator its own prefix, and
-leave `/api/maps/...` gated — which is an app change plus a change in the
-annotation client, not a proxy rule. Until that is done, `AUTH_MODE=gateway`
-should not be switched on here.
+```
+/api/maps/{id}/annotations        gated     the owner, with privileges
+/annot/maps/{id}/annotations      public    anonymous, with none
+/api/maps/{id}/annotate/data      gated
+/annot/maps/{id}/data             public
+/api/annotations/{id}             gated
+/annot/annotations/{id}           public
+```
+
+Under `/annot` no user is ever looked up. That is worth stating precisely
+because it is stronger than what a proxy can promise: send a valid
+`X-Borant-Sub` from a trusted source to `/annot` and it still answers
+"Anonymous". The property survives a proxy that fails to strip anything.
+
+`/api/whoami` sits inside the gate and exists only for the annotation client.
+From a share link the browser cannot tell whether it has an account, because
+the public branch carries no identity by construction — so the client asks
+once, with `Accept: application/json` so the gate answers 401 instead of
+redirecting to a login page, and switches to the gated paths if it gets
+through. Anyone with an account keeps their name on their annotations; anyone
+without stays anonymous.
+
+Public surface for the reverse proxy: `/healthz`, `/share/*`, `/annotate/*`,
+`/static/*`, `/imgs/*`, `/lang/*`, `/login`, `/register`, and **`/annot/*`** —
+one clean prefix instead of a matcher picking single paths out of `/api`.
+
+**Deploy it when no annotation session is open in a room.** Three maps carry an
+open session today; the client changes which URLs it calls, so a browser left
+on the old page keeps calling the old ones until it is reloaded.

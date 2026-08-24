@@ -50,6 +50,7 @@ from auth import (
     get_user_or_none, hash_password, require_permission, verify_password,
 )
 from models import (
+    clone_welcome_map,
     Annotation, AnnotationSession, AppConfig, Course, Map, Role, Template, UsageLog, User,
     course_teachers,
     get_config, get_db, init_db, log_usage, set_config, user_month_cost,
@@ -204,24 +205,6 @@ def logout():
 
 # ── Self-service registration ──────────────────────────────────────────────────
 
-def _clone_welcome_map(db: Session, new_user_id: int) -> None:
-    """Copy the admin-configured welcome map into a freshly registered account.
-    No-op when no welcome map is configured or the configured map is gone."""
-    wid = get_config(db, "welcome_map_id")
-    if not wid:
-        return
-    src = db.query(Map).filter(Map.id == int(wid)).first()
-    if not src:
-        return
-    clone = Map(
-        user_id=new_user_id,
-        title=src.title,
-        map_data=copy.deepcopy(src.map_data),
-    )
-    db.add(clone)
-    db.commit()
-
-
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request, session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     if get_user_or_none(session, db, request):
@@ -284,7 +267,7 @@ def register(
     db.commit()
     db.refresh(u)
 
-    _clone_welcome_map(db, u.id)
+    clone_welcome_map(db, u.id)
 
     token = create_token(u.id)
     resp = RedirectResponse("/app", status_code=status.HTTP_303_SEE_OTHER)

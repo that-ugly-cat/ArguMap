@@ -19,7 +19,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from models import Role, User, get_db
+from models import Role, User, clone_welcome_map, get_db
 
 log = logging.getLogger("argumap.auth")
 
@@ -127,6 +127,11 @@ def user_from_gateway(request: Request, db: Session) -> User | None:
     db.add(user)
     db.commit()
     db.refresh(user)
+    # Stessa cortesia che riceve chi si registra da se': senza questa riga un
+    # profilo nato dal gate apre un'app vuota, e non ha modo di sapere che la
+    # mappa di benvenuto esiste. Non e' decorazione — e' la differenza fra
+    # «ecco come si fa» e uno schermo bianco al primo accesso.
+    clone_welcome_map(db, user.id)
     log.info("gateway: new profile for %s (%s) as %s", email, sub, DEFAULT_ROLE)
     return user
 

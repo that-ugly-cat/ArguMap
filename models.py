@@ -16,6 +16,7 @@ Migration strategy: init_db() runs ALTER TABLE for each new column on every star
 SQLite silently raises on duplicate columns so failures are caught and ignored.
 This is intentional but fragile: column type changes are not handled.
 """
+import copy
 from datetime import datetime
 from sqlalchemy import (
     Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String, Text,
@@ -217,6 +218,28 @@ DEFAULT_CONFIG = {
     "registration_open": "0",
     "welcome_map_id":    "",
 }
+
+
+def clone_welcome_map(db, new_user_id: int) -> None:
+    """Copia la mappa di benvenuto configurata dall'admin in un profilo nuovo.
+
+    No-op se non ne e' configurata nessuna o se quella configurata non c'e' piu'.
+
+    Sta qui e non in `main` perche' i profili nuovi nascono in **due** posti:
+    la registrazione self-service, e — in `AUTH_MODE=gateway` — il primo
+    ingresso di un subject che l'app non ha mai visto. Chiamarla in uno solo
+    dei due significa che meta' degli utenti apre un'app vuota, e se ne accorge
+    solo chi la usa.
+    """
+    wid = get_config(db, "welcome_map_id")
+    if not wid:
+        return
+    src = db.query(Map).filter(Map.id == int(wid)).first()
+    if not src:
+        return
+    db.add(Map(user_id=new_user_id, title=src.title,
+               map_data=copy.deepcopy(src.map_data)))
+    db.commit()
 
 
 def get_config(db, key: str, default: str | None = None) -> str | None:

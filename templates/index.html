@@ -58,11 +58,48 @@
     }
     .btn-lang:hover { color: #a0aec0; border-color: #4a5568; }
 
+    .nav-drop { position: relative; display: flex; }
+    /* ponte invisibile: tiene aperto il menu mentre il mouse scende */
+    .nav-drop::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 0.45rem; }
+    .nav-drop-menu {
+      display: none;
+      position: absolute;
+      top: 100%; right: 0;
+      margin-top: 0.45rem;
+      min-width: 200px;
+      max-width: 320px;
+      max-height: 60vh;
+      overflow-y: auto;
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      padding: 0.3rem;
+      z-index: 60;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    }
+    .nav-drop:hover .nav-drop-menu,
+    .nav-drop:focus-within .nav-drop-menu { display: block; }
+    .nav-drop-menu a {
+      display: block;
+      padding: 0.4rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: #a0aec0;
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nav-drop-menu a:hover { background: #2d3148; color: #e2e8f0; }
+    .nav-drop-empty { display: block; padding: 0.4rem 0.6rem; font-size: 0.75rem; color: #4a5568; white-space: nowrap; }
+
     main { max-width: 860px; margin: 0 auto; padding: 2.5rem 1.5rem; }
 
     h2 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: #4a5568; margin-bottom: 1rem; }
 
-    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2.5rem; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2.5rem; }
+    @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
 
     .card {
       background: #1a1d27;
@@ -306,7 +343,16 @@
   <div class="header-right">
     <span class="user-name">{{ user.name or user.email }}</span>
     {% if can_manage_courses %}
-    <a href="/admin" class="btn-sm btn-ghost">{{ t.my_courses }}</a>
+    <div class="nav-drop">
+      <a href="/admin" class="btn-sm btn-ghost">{{ t.my_courses }}</a>
+      <div class="nav-drop-menu">
+        {% for c in courses %}
+        <a href="/admin/courses/{{ c.id }}">{{ c.name }}</a>
+        {% else %}
+        <span class="nav-drop-empty">{{ t.admin_no_courses }}</span>
+        {% endfor %}
+      </div>
+    </div>
     <a href="/teacher/templates" class="btn-sm btn-ghost">{{ t.tmpl_nav }}</a>
     {% endif %}
     {% if can_admin %}

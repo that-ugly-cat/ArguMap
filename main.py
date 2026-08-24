@@ -283,12 +283,23 @@ def app_page(request: Request, session: str | None = Cookie(default=None), db: S
     if not user:
         return RedirectResponse("/login", status_code=302)
     lang = _get_lang(request)
+    can_manage_courses = user.has_permission("view_course_maps")
+
+    courses = []
+    if can_manage_courses:
+        q = db.query(Course)
+        if not user.has_permission("admin"):
+            q = (q.join(course_teachers, Course.id == course_teachers.c.course_id)
+                  .filter(course_teachers.c.user_id == user.id))
+        courses = [{"id": c.id, "name": c.name} for c in q.order_by(Course.name).all()]
+
     return templates.TemplateResponse(request, "index.html", {
         "user":         user,
         "can_pipeline":        user.has_permission("pipeline"),
         "can_debate":          user.has_permission("debate"),
         "can_admin":           user.has_permission("admin"),
-        "can_manage_courses":  user.has_permission("view_course_maps"),
+        "can_manage_courses":  can_manage_courses,
+        "courses":             courses,
         "t":            _locales.get_t(lang),
         "lang":         lang,
     })
@@ -769,6 +780,23 @@ _ANNOT_JS = r"""
   if(titleEl) titleEl.textContent=T.annot_title;
   var btn=document.getElementById('btn-annotate');
   function api(p,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json'},o.headers||{});return fetch(p,o);}
+  // Due prefissi per la stessa logica. In ownerMode si sta gia' su una pagina
+  // gated, quindi si usa `/api`. In studentMode si parte dal prefisso anonimo
+  // e si chiede UNA volta al gate se ci conosce: `Accept: application/json`
+  // fa rispondere 401 invece di un redirect al login, quindi la risposta e'
+  // leggibile da qui. Se ci conosce si passa a `/api` e l'annotazione porta il
+  // nome; altrimenti si resta anonimi. E' l'unico posto in cui questa domanda
+  // si puo' fare: dal ramo pubblico l'identita' non arriva per costruzione.
+  var BASE_MAPPE  = ownerMode ? '/api/maps/' : '/annot/maps/';
+  var BASE_ANNOT  = ownerMode ? '/api/annotations/' : '/annot/annotations/';
+  var VIA_DATI    = ownerMode ? '/annotate/data' : '/data';
+  async function _sondaIdentita(){
+    if(ownerMode) return;
+    try{
+      var r=await fetch('/api/whoami',{headers:{'Accept':'application/json'}});
+      if(r.ok){ BASE_MAPPE='/api/maps/'; BASE_ANNOT='/api/annotations/'; VIA_DATI='/annotate/data'; }
+    }catch(e){ /* si resta anonimi: e' il ripiego sicuro */ }
+  }
   // Catalog of fallacy/bias names from the viewer's SCHEMES_DATA (shared global lexical scope).
   function catNames(kind){var out=[];try{var root=(typeof SCHEMES_DATA!=='undefined'?SCHEMES_DATA:{})[kind]||{};Object.keys(root).forEach(function(fk){((root[fk]||{})[kind]||[]).forEach(function(it){if(it&&it.name)out.push(it.name);});});}catch(e){}return out;}
   function ensureDatalist(){[['fallacies','annot-fallacies-list'],['biases','annot-biases-list']].forEach(function(p){if(document.getElementById(p[1]))return;var dl=document.createElement('datalist');dl.id=p[1];catNames(p[0]).forEach(function(n){var o=document.createElement('option');o.value=n;dl.appendChild(o);});document.body.appendChild(dl);});}
@@ -776,6 +804,7 @@ _ANNOT_JS = r"""
   // Viewers can't drag nodes/edges (set the option directly and via the API).
   function _lockViewer(){ if(typeof graph==='undefined')return; try{ graph.options.interacting={nodeMovable:false,edgeMovable:false,magnetConnectable:false}; if(graph.setInteracting)graph.setInteracting({nodeMovable:false,edgeMovable:false,magnetConnectable:false}); }catch(e){} }
   function enter(){layerOn=true;if(btn)btn.textContent=T.annot_exit;ensureDatalist();
+    _sondaIdentita().then(function(){ if(layerOn) poll(); });
     if(studentMode){document.body.classList.add('annot-open');if(window.setMode)setMode('annotate');_lockViewer();}
     else{document.body.classList.add('annot-on');renderShare();}
     startPoll();drawLayer();renderThread();}
@@ -809,10 +838,10 @@ _ANNOT_JS = r"""
     if(_lastMapUp === null){ _lastMapUp = store.map_updated; return; }
     if(store.map_updated === _lastMapUp) return;
     _lastMapUp = store.map_updated;
-    try{var dr=await api('/api/maps/'+ANNOT.mapId+'/annotate/data');if(!dr.ok)return;var dj=await dr.json();
+    try{var dr=await api(BASE_MAPPE+ANNOT.mapId+VIA_DATI);if(!dr.ok)return;var dj=await dr.json();
       if(dj.map_data && typeof rebuildFromMap==='function'){ rebuildFromMap(dj.map_data); _lockViewer(); }}catch(e){}
   }
-  async function poll(){try{var r=await api('/api/maps/'+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();await _refreshMapIfChanged();drawLayer();if(layerOn&&sel&&!typingInAnnot())renderThread();}catch(e){}}
+  async function poll(){try{var r=await api(BASE_MAPPE+ANNOT.mapId+'/annotations');if(!r.ok)return;store=await r.json();await _refreshMapIfChanged();drawLayer();if(layerOn&&sel&&!typingInAnnot())renderThread();}catch(e){}}
   // Owner autosave while annotating, so viewers see edits within a poll cycle.
   function _annotAutosave(){
     if(!ANNOT.canEdit) return;
@@ -891,13 +920,13 @@ _ANNOT_JS = r"""
     if(ownerMode){var el=ownerThreadEl();if(!el)return;if(!sel){el.style.display='none';el.innerHTML='';}else{el.style.display='';el.innerHTML=threadHtml();}}
     else{if(!body)return;body.innerHTML=sel?('<button class="annot-linkbtn" onclick="__annotBack()">'+esc(T.annot_back)+'</button>'+threadHtml()):studentHome();}
   }
-  async function post(kind,payload){if(!sel)return;await api('/api/maps/'+ANNOT.mapId+'/annotations',{method:'POST',body:JSON.stringify({target_kind:sel.kind,target_id:sel.id,kind:kind,payload:payload})});poll();}
+  async function post(kind,payload){if(!sel)return;await api(BASE_MAPPE+ANNOT.mapId+'/annotations',{method:'POST',body:JSON.stringify({target_kind:sel.kind,target_id:sel.id,kind:kind,payload:payload})});poll();}
   window.__annotPlaus=function(v){post('plausibility',{value:v});};
   window.__annotAdd=function(kind){
     if(kind==='comment'){var ta=document.getElementById('annot-comment');var tx=((ta&&ta.value)||'').trim();if(!tx)return;post('comment',{text:tx});}
     else{var li=document.getElementById(kind==='fallacy'?'annot-fal':'annot-bias');var lb=((li&&li.value)||'').trim();if(!lb)return;post(kind,{label:lb});if(li)li.value='';}
   };
-  window.__annotDel=async function(id){await api('/api/annotations/'+id,{method:'DELETE'});poll();};
+  window.__annotDel=async function(id){await api(BASE_ANNOT+id,{method:'DELETE'});poll();};
   window.__annotOpenClose=async function(){var path=store.open?'close':'open';var r=await api('/api/maps/'+ANNOT.mapId+'/annotate/'+path,{method:'POST'});if(r.ok){var j=await r.json();if(j.token)ANNOT.token=j.token;store.open=!store.open;if(ownerMode)renderShare();drawLayer();renderThread();}};
   window.__annotNewSession=async function(){if(!confirm(T.annot_new_session_confirm))return;await api('/api/maps/'+ANNOT.mapId+'/annotate/new-session',{method:'POST'});poll();};
   window.__annotCopy=function(btn,link){navigator.clipboard.writeText(link).then(function(){var o=btn.textContent;btn.textContent=T.annot_copied;setTimeout(function(){btn.textContent=o;},1200);});};
@@ -1481,6 +1510,35 @@ def revoke_share(map_id: int, user: User = Depends(get_current_user), db: Sessio
 # is the logged-in account when present, otherwise a permissive anonymous token
 # cookie (RoomPulse-style). Realtime is client polling; no websockets.
 
+# ── Il prefisso anonimo ───────────────────────────────────────────────────────
+#
+# Quattro endpoint dell'annotazione servono due pubblici diversi: il
+# proprietario, che ha bisogno di privilegi (leggere a sessione chiusa,
+# moderare l'annotazione di un altro), e l'annotatore anonimo, che non ne ha
+# nessuno. Sono la stessa logica con due identita' diverse, e finche' stavano
+# su un URL solo nessun reverse proxy poteva gatarli: sul ramo pubblico
+# l'identita' viene strippata e il proprietario diventa anonimo; su quello
+# gated l'annotatore anonimo non entra affatto.
+#
+# Quindi gli stessi handler rispondono su DUE prefissi, e il prefisso decide
+# l'identita': sotto `/annot` non si guarda **mai** un utente. E' una proprieta'
+# del percorso, dichiarabile e provabile — non piu' un effetto collaterale di
+# cosa il proxy ha cancellato.
+#
+#   /api/maps/{id}/annotations        gated    proprietario, con privilegi
+#   /annot/maps/{id}/annotations      pubblico anonimo, senza privilegi
+#
+# Chi ha un account e arriva da un link di condivisione non ci perde niente: il
+# client chiede una volta a `/api/whoami` se il gate lo conosce, e se si' usa i
+# path gated. L'autenticazione opzionale si sposta dal server, dove attraverso
+# un proxy non si puo' fare, al client, dove e' una richiesta sola.
+ANNOT_PUBBLICO = "/annot/"
+
+
+def _anonimo(request: Request) -> bool:
+    return request.url.path.startswith(ANNOT_PUBBLICO)
+
+
 def _map_annot_admin(map_id: int, user: User, db: Session) -> Map:
     """Owner, or a teacher of the map's course, may administer the annotation layer."""
     m = db.query(Map).filter(Map.id == map_id).first()
@@ -1506,13 +1564,14 @@ def _active_session(map_id: int, db: Session, create: bool = False):
 
 
 def _annot_identity(session: str | None, annot_token: str | None, db: Session,
-                    request: Request | None = None):
+                    request: Request | None = None, anonimo: bool = False):
     """Return (user_id_or_None, token_or_None, display_name).
 
-    `request` is threaded through because in `gateway` the identity lives in
-    headers rather than in the cookie. These routes serve *both* an anonymous
-    annotator and a logged-in owner, which is why the user lookup is optional
-    here and not a dependency."""
+    `anonimo` viene dal prefisso, non dagli header: sotto `/annot` l'identita'
+    e' il token e basta, per costruzione. `request` serve per l'altro ramo,
+    perche' in `gateway` l'utente sta negli header e non nel cookie."""
+    if anonimo:
+        return None, annot_token, "Anonymous"
     user = get_user_or_none(session, db, request)
     if user:
         return user.id, None, (user.name or user.email)
@@ -1564,13 +1623,15 @@ def _can_read_annotations(m: Map, user: User | None) -> bool:
 
 
 @app.get("/api/maps/{map_id}/annotations")
+@app.get("/annot/maps/{map_id}/annotations")
 def list_annotations(map_id: int, request: Request,
                      session: str | None = Cookie(default=None),
                      annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     m = db.query(Map).filter(Map.id == map_id).first()
     if not m:
         raise HTTPException(404, "Map not found")
-    user = get_user_or_none(session, db, request)
+    anon = _anonimo(request)
+    user = None if anon else get_user_or_none(session, db, request)
     if not _can_read_annotations(m, user):
         raise HTTPException(403, "Forbidden")
     map_updated = m.updated_at.isoformat() if m.updated_at else None
@@ -1580,7 +1641,7 @@ def list_annotations(map_id: int, request: Request,
     rows = (db.query(Annotation)
             .filter(Annotation.session_id == s.id, Annotation.status == "visible")
             .order_by(Annotation.created_at.asc()).all())
-    my_uid, my_tok, _ = _annot_identity(session, annot_token, db, request)
+    my_uid, my_tok, _ = _annot_identity(session, annot_token, db, request, anon)
 
     def is_mine(a):
         return ((a.author_user_id is not None and a.author_user_id == my_uid) or
@@ -1608,15 +1669,31 @@ def list_annotations(map_id: int, request: Request,
 
 
 @app.get("/api/maps/{map_id}/annotate/data")
+@app.get("/annot/maps/{map_id}/data")
 def annotate_map_data(map_id: int, request: Request,
                       session: str | None = Cookie(default=None), db: Session = Depends(get_db)):
     """Map structure for annotators, so viewers can pick up the owner's live edits."""
     m = db.query(Map).filter(Map.id == map_id).first()
     if not m:
         raise HTTPException(404, "Map not found")
-    if not _can_read_annotations(m, get_user_or_none(session, db, request)):
+    utente = None if _anonimo(request) else get_user_or_none(session, db, request)
+    if not _can_read_annotations(m, utente):
         raise HTTPException(403, "Forbidden")
     return {"map_data": m.map_data, "updated_at": m.updated_at.isoformat() if m.updated_at else None}
+
+
+@app.get("/api/whoami")
+def whoami(user: User = Depends(get_current_user)):
+    """Chi sono, secondo questa app. Sta **dentro** il gate di proposito.
+
+    Non serve all'app: serve al client dell'annotazione. Chi apre un link di
+    condivisione puo' avere un account oppure no, e da dentro il browser non
+    c'e' modo di saperlo — il ramo pubblico non porta identita' per costruzione.
+    Il client prova questa, con `Accept: application/json` cosi' il gate
+    risponde 401 invece di un redirect al login: se passa, usa i path gated e
+    la sua annotazione porta il suo nome; se no, resta sul prefisso anonimo.
+    """
+    return {"id": user.id, "name": user.name or user.email}
 
 
 class AnnotationCreate(BaseModel):
@@ -1627,6 +1704,7 @@ class AnnotationCreate(BaseModel):
 
 
 @app.post("/api/maps/{map_id}/annotations")
+@app.post("/annot/maps/{map_id}/annotations")
 def create_annotation(map_id: int, body: AnnotationCreate, response: Response, request: Request,
                       session: str | None = Cookie(default=None),
                       annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):
@@ -1637,7 +1715,7 @@ def create_annotation(map_id: int, body: AnnotationCreate, response: Response, r
         raise HTTPException(403, "Annotation is closed")
     if body.target_kind not in ("node", "edge") or body.kind not in ("comment", "plausibility", "fallacy", "bias"):
         raise HTTPException(400, "Invalid annotation")
-    my_uid, my_tok, my_name = _annot_identity(session, annot_token, db, request)
+    my_uid, my_tok, my_name = _annot_identity(session, annot_token, db, request, _anonimo(request))
     if my_uid is None and not my_tok:
         my_tok = secrets.token_urlsafe(12)
         response.set_cookie("annot_token", my_tok, max_age=60 * 60 * 24 * 365, samesite="lax")
@@ -1663,14 +1741,17 @@ def create_annotation(map_id: int, body: AnnotationCreate, response: Response, r
 
 def _own_annotation(ann_id: int, session, annot_token, db,
                     request: Request | None = None) -> Annotation:
+    anon = _anonimo(request) if request is not None else False
     a = db.query(Annotation).filter(Annotation.id == ann_id).first()
     if not a:
         raise HTTPException(404, "Annotation not found")
-    my_uid, my_tok, _ = _annot_identity(session, annot_token, db, request)
+    my_uid, my_tok, _ = _annot_identity(session, annot_token, db, request, anon)
     mine = ((a.author_user_id is not None and a.author_user_id == my_uid) or
             (a.author_token is not None and my_tok is not None and a.author_token == my_tok))
     if not mine:
-        user = get_user_or_none(session, db, request)
+        # Sul prefisso anonimo la moderazione non esiste: si cancella solo cio'
+        # che e' proprio, e «proprio» vuol dire lo stesso token.
+        user = None if anon else get_user_or_none(session, db, request)
         m = db.query(Map).filter(Map.id == a.map_id).first()
         if not (user and m and (m.user_id == user.id or user.has_permission("view_course_maps"))):
             raise HTTPException(403, "Forbidden")
@@ -1689,6 +1770,7 @@ def update_annotation(ann_id: int, body: dict, request: Request,
 
 
 @app.delete("/api/annotations/{ann_id}")
+@app.delete("/annot/annotations/{ann_id}")
 def delete_annotation(ann_id: int, request: Request,
                       session: str | None = Cookie(default=None),
                       annot_token: str | None = Cookie(default=None), db: Session = Depends(get_db)):

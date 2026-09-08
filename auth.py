@@ -8,6 +8,7 @@ Strategy: JWT stored in an httpOnly cookie named 'session'.
 - `get_user_or_none` is used by HTML routes that redirect manually instead of raising 401.
 - `require_permission(slug)` is a dependency factory for permission-gated routes.
 """
+import hmac
 import ipaddress
 import logging
 import os
@@ -17,6 +18,7 @@ from datetime import datetime, timedelta
 from fastapi import Cookie, Depends, HTTPException, Request, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from models import Role, User, clone_welcome_map, get_db
@@ -75,6 +77,50 @@ def _parse_trusted(raw: str) -> list:
 
 TRUSTED_PROXIES = _parse_trusted(TRUSTED_PROXY)
 
+# ── Provisioning in advance ───────────────────────────────────────────────────
+#
+# Borant ID can say who will be allowed in before they get here, so the profile
+# — and its welcome map — exists ahead of the first access and a class can be
+# prepared the evening before instead of during the lecture. Not a requirement:
+# with these unset everything works as it did, because a profile is still born
+# at first access.
+#
+# **Two locks, both off by default.** The secret is the credential; the address
+# says the call comes from the gate on the shared docker network and not from
+# the internet. Miss either and the route does not exist. Same shape as §8, for
+# the same reason: an app that believes a credential without looking at where
+# it came from has one lock, not two.
+#
+# What the route may do is deliberately narrow: **create profiles that are not
+# there**. It never updates one, never changes a role, never deactivates. A
+# stolen secret buys empty accounts, not somebody else's maps.
+PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "").strip()
+PROVISION_TRUSTED = _parse_trusted(os.environ.get("PROVISION_TRUSTED", ""))
+
+
+def provisioning_enabled() -> bool:
+    return bool(PROVISION_SECRET and PROVISION_TRUSTED)
+
+
+def provision_caller_ok(request: Request, authorization: str | None) -> bool:
+    """The caller holds the secret **and** comes from where it should."""
+    if not provisioning_enabled():
+        return False
+    peer = request.client.host if request.client else None
+    try:
+        addr = ipaddress.ip_address(peer) if peer else None
+    except ValueError:
+        addr = None
+    if addr is None or not any(addr in net for net in PROVISION_TRUSTED):
+        log.warning("/internal/provision from %s, outside PROVISION_TRUSTED: refused", peer)
+        return False
+    given = authorization or ""
+    if not given.lower().startswith("bearer "):
+        return False
+    # `compare_digest` and not `==`: comparing a secret must not take a time
+    # that depends on how many characters the caller has guessed right.
+    return hmac.compare_digest(given[7:].strip(), PROVISION_SECRET)
+
 
 def gateway_mode() -> bool:
     return AUTH_MODE == "gateway"
@@ -89,6 +135,106 @@ def _from_trusted_proxy(request: Request) -> bool:
     except ValueError:
         return False
     return any(addr in net for net in TRUSTED_PROXIES)
+
+
+def provision(db: Session, sub: str, email: str, name: str,
+              hint: str) -> tuple[str, User | None]:
+    """The local profile of whoever the gate knows as `sub`, created if missing.
+
+    Returns `(outcome, user)`, where outcome is one of:
+
+      already    a row is already linked to this subject, and stays untouched
+      created    the row was created just now
+      conflict   a local profile already holds that address, unlinked
+
+    One function because there are two roads into it — the first request behind
+    the gate, and the roster Borant ID pushes to `/internal/provision` when it
+    grants access — and a new user must find the same thing down both. Two
+    copies would diverge the first time a side effect is added to one of them,
+    which is exactly how the welcome map got forgotten once already.
+    """
+    user = db.query(User).filter(User.borant_sub == sub).first()
+    if user is not None:
+        return "already", user
+
+    email = (email or "").strip().lower() or f"{sub}@borant.invalid"
+    taken = db.query(User).filter(User.email == email).first()
+    if taken is not None:
+        # Qualcuno con questo indirizzo c'e' gia' e non e' legato. NON si adotta
+        # quella riga: qui una persona sola ha piu' righe sotto indirizzi
+        # diversi, quindi indovinare sarebbe sbagliato piu' spesso che altrove.
+        log.error("gateway: %s arrives as %s, but a local row already holds that "
+                  "address and has no borant_sub. Run "
+                  "`python map_borant.py --map %s=%s` instead of letting the gate guess.",
+                  email, sub, email, sub)
+        return "conflict", None
+
+    # L'hint del gate propone il ruolo di partenza, e da oggi viene onorato.
+    #
+    # Il §18 nasce proprio da qui e dice di non provisionare mai da un header un
+    # ruolo che spende. La deroga e' deliberata e regge sullo stesso
+    # presupposto di Grant Radar e RoomPulse: quella regola presume la
+    # **registrazione aperta**, dove l'hint porta cio' che ha chiesto *chi
+    # bussa*. Su Borant ID e' spenta, e anche una richiesta d'accesso fa
+    # scegliere il ruolo all'amministratore approvando — quindi qui `teacher` o
+    # `full` ci sono solo perche' un umano li ha digitati.
+    #
+    # Quello che il codice deve comunque e' **rumore**, e un tetto di spesa.
+    hint = (hint or "").strip().lower()
+    nome_ruolo = DEFAULT_ROLE
+    if hint:
+        if db.query(Role).filter(Role.name == hint).first() is not None:
+            nome_ruolo = hint
+        else:
+            log.warning("gateway: hint %r non e' un ruolo di questa app, ricado su %r",
+                        hint, DEFAULT_ROLE)
+
+    role = db.query(Role).filter(Role.name == nome_ruolo).first()
+    if role is None:
+        log.error("gateway: role %r missing, refusing to create a profile with no role",
+                  nome_ruolo)
+        return "error", None
+    if nome_ruolo in RUOLI_CHE_SPENDONO:
+        log.warning(
+            "gateway: %s (%s) creato come %r su suggerimento del gate. Quel ruolo "
+            "puo' far girare la pipeline, che paga dalla chiave del server. Tetto "
+            "mensile impostato a %.2f USD. Revocare da /admin se non era voluto.",
+            email, sub, nome_ruolo, TETTO_PREDEFINITO_USD)
+
+    user = User(email=email,
+                name=(name or "").strip() or None,
+                password_hash=hash_password(secrets.token_urlsafe(32)),
+                role=role, borant_sub=sub, is_active=True,
+                monthly_budget_usd=TETTO_PREDEFINITO_USD)
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        # Two requests from the same person at once — the page and its XHR —
+        # both miss the SELECT and both INSERT; `borant_sub` is unique, so one
+        # loses. With four users this never happens; with a class arriving in
+        # the same minute it does, and it lands as a 500 at the start of the
+        # lecture. Whoever lost re-reads the other's row, which is the same
+        # person, and nobody sees anything.
+        db.rollback()
+        user = db.query(User).filter(User.borant_sub == sub).first()
+        if user is None:
+            raise
+        return "already", user
+    db.refresh(user)
+    # Stessa cortesia che riceve chi si registra da se': senza questa riga un
+    # profilo nato dal gate apre un'app vuota, e non ha modo di sapere che la
+    # mappa di benvenuto esiste. Non e' decorazione — e' la differenza fra
+    # «ecco come si fa» e uno schermo bianco al primo accesso.
+    #
+    # Vale identica per il roster spinto dal gate: cento profili annunciati in
+    # anticipo sono cento mappe di benvenuto, ed e' il motivo per cui il push
+    # passa da qui invece di scrivere le righe per conto suo (SPEC.md §19,
+    # regola 4).
+    clone_welcome_map(db, user.id)
+    log.info("gateway: new profile for %s (%s) as %s, tetto %.2f USD",
+             email, sub, nome_ruolo, TETTO_PREDEFINITO_USD)
+    return "created", user
 
 
 def user_from_gateway(request: Request, db: Session) -> User | None:
@@ -109,70 +255,14 @@ def user_from_gateway(request: Request, db: Session) -> User | None:
                     request.client.host if request.client else "?", TRUSTED_PROXY)
         return None
 
-    user = db.query(User).filter(User.borant_sub == sub).first()
-    if user is not None:
-        return user if user.is_active else None
-
-    email = (request.headers.get("x-borant-email", "") or f"{sub}@borant.invalid").strip().lower()
-    taken = db.query(User).filter(User.email == email).first()
-    if taken is not None:
-        # Qualcuno con questo indirizzo c'e' gia' e non e' legato. NON si adotta
-        # quella riga: qui una persona sola ha piu' righe sotto indirizzi
-        # diversi, quindi indovinare sarebbe sbagliato piu' spesso che altrove.
-        log.error("gateway: %s arrives as %s, but a local row already holds that "
-                  "address and has no borant_sub. Run "
-                  "`python map_borant.py --map %s=%s` instead of letting the gate guess.",
-                  email, sub, email, sub)
+    _, user = provision(db, sub,
+                        request.headers.get("x-borant-email", ""),
+                        request.headers.get("x-borant-name", ""),
+                        request.headers.get("x-borant-hint", ""))
+    if user is None or not user.is_active:
         return None
-
-    # L'hint del gate propone il ruolo di partenza, e da oggi viene onorato.
-    #
-    # Il §18 nasce proprio da qui e dice di non provisionare mai da un header un
-    # ruolo che spende. La deroga e' deliberata e regge sullo stesso
-    # presupposto di Grant Radar e RoomPulse: quella regola presume la
-    # **registrazione aperta**, dove l'hint porta cio' che ha chiesto *chi
-    # bussa*. Su Borant ID e' spenta, e anche una richiesta d'accesso fa
-    # scegliere il ruolo all'amministratore approvando — quindi qui `teacher` o
-    # `full` ci sono solo perche' un umano li ha digitati.
-    #
-    # Quello che il codice deve comunque e' **rumore**, e un tetto di spesa.
-    hint = (request.headers.get("x-borant-hint", "") or "").strip().lower()
-    nome_ruolo = DEFAULT_ROLE
-    if hint:
-        if db.query(Role).filter(Role.name == hint).first() is not None:
-            nome_ruolo = hint
-        else:
-            log.warning("gateway: hint %r non e' un ruolo di questa app, ricado su %r",
-                        hint, DEFAULT_ROLE)
-
-    role = db.query(Role).filter(Role.name == nome_ruolo).first()
-    if role is None:
-        log.error("gateway: role %r missing, refusing to create a profile with no role",
-                  nome_ruolo)
-        return None
-    if nome_ruolo in RUOLI_CHE_SPENDONO:
-        log.warning(
-            "gateway: %s (%s) creato come %r su suggerimento del gate. Quel ruolo "
-            "puo' far girare la pipeline, che paga dalla chiave del server. Tetto "
-            "mensile impostato a %.2f USD. Revocare da /admin se non era voluto.",
-            email, sub, nome_ruolo, TETTO_PREDEFINITO_USD)
-
-    user = User(email=email,
-                name=request.headers.get("x-borant-name", "").strip() or None,
-                password_hash=hash_password(secrets.token_urlsafe(32)),
-                role=role, borant_sub=sub, is_active=True,
-                monthly_budget_usd=TETTO_PREDEFINITO_USD)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    # Stessa cortesia che riceve chi si registra da se': senza questa riga un
-    # profilo nato dal gate apre un'app vuota, e non ha modo di sapere che la
-    # mappa di benvenuto esiste. Non e' decorazione — e' la differenza fra
-    # «ecco come si fa» e uno schermo bianco al primo accesso.
-    clone_welcome_map(db, user.id)
-    log.info("gateway: new profile for %s (%s) as %s, tetto %.2f USD",
-             email, sub, nome_ruolo, TETTO_PREDEFINITO_USD)
     return user
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

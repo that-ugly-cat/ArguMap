@@ -18,6 +18,7 @@ import asyncio
 import copy
 import io
 import json
+import logging
 import os
 import secrets
 import time
@@ -38,7 +39,7 @@ PAPER2MD_API_KEY = os.environ.get("PAPER2MD_API_KEY", "")
 # a large paper) and requests are serialized behind one worker there.
 PAPER2MD_TIMEOUT = 240.0
 
-from fastapi import Cookie, Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile, status
+from fastapi import Cookie, Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy.orm.attributes import flag_modified
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
@@ -48,6 +49,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 import locales as _locales
+
+# Il modulo intero accanto ai nomi gia' importati: `/internal/provision` usa
+# `auth.provision` e `auth.provision_caller_ok`, e scriverli per esteso dice da
+# dove vengono meglio di due nomi nudi in mezzo agli altri.
+import auth
 
 from auth import (
     AUTH_MODE, BORANT_LOGOUT_URL, create_token, gateway_mode, get_current_user,
@@ -62,6 +68,8 @@ from models import (
 from automap_v2_pipeline import extract_map, ingest_bytes
 from automap_v2_x6 import generate_html_x6
 
+log = logging.getLogger("argumap.main")
+
 app = FastAPI(title="AutoMap v2")
 @app.get("/healthz")
 def healthz():
@@ -71,6 +79,56 @@ def healthz():
     funzioni ne' che qualcuno abbia budget.
     """
     return {"ok": True, "mode": AUTH_MODE}
+
+
+class ProvisionUser(BaseModel):
+    subject: str
+    email: str = ""
+    name: str = ""
+    hint: str = ""
+
+
+class ProvisionIn(BaseModel):
+    users: list[ProvisionUser]
+
+
+@app.post("/internal/provision")
+def internal_provision(body: ProvisionIn, request: Request,
+                       authorization: str | None = Header(default=None),
+                       db: Session = Depends(get_db)):
+    """Who will be allowed in, said in advance by the gate.
+
+    It buys one thing: a person's profile — and their welcome map — exists
+    *before* they open the app. Without it a class of a hundred does not exist
+    here until each of them has clicked, so nobody can be put in a group, and
+    preparing a course moves from the evening before to the minute after the
+    lecture starts.
+
+    Not on a public path and not through Caddy: the gate calls it on the shared
+    docker network, at the container's own address. The caller must hold the
+    secret and come from `PROVISION_TRUSTED`; without both the route does not
+    exist, and answers 404 rather than 401 — somebody knocking from outside
+    should not even have it confirmed that there is something behind the door.
+
+    **Creates and nothing else.** Whoever is already here is counted and left
+    alone: no role changed, no profile updated, nothing deactivated. That is
+    what keeps this a convenience rather than a remote control on the database.
+    """
+    if not auth.provision_caller_ok(request, authorization):
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    out = {"created": 0, "already": 0, "conflict": 0, "error": 0, "conflicts": []}
+    for entry in body.users:
+        sub = (entry.subject or "").strip()
+        if not sub:
+            continue
+        outcome, _ = auth.provision(db, sub, entry.email, entry.name, entry.hint)
+        out[outcome] = out[outcome] + 1
+        if outcome == "conflict":
+            out["conflicts"].append({"email": entry.email, "subject": sub})
+    log.info("provision: created %d, already there %d, conflicts %d",
+             out["created"], out["already"], out["conflict"])
+    return out
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")

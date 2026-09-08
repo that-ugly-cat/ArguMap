@@ -151,6 +151,8 @@ Docker volume.
 | `ANTHROPIC_API_KEY` | Yes | Anthropic API key for pipeline and debate features. |
 | `PAPER2MD_URL` | No | PDF → clean-text service. Defaults to `https://paper2md.borant.eu`. |
 | `PAPER2MD_API_KEY` | No | Optional key for paper2md; raises the upload size cap to 50MB. |
+| `PROVISION_SECRET` | No | Shared secret for `/internal/provision`. Unset = the route does not exist. |
+| `PROVISION_TRUSTED` | No | CIDR the gate calls from, e.g. `172.28.0.0/16`. Unset = the route does not exist. |
 
 ---
 
@@ -345,6 +347,54 @@ notices — which is exactly how this went unreported for months.
 there. It used to use the fixed graph point `{80, 80}`: invisible as soon as the
 canvas was panned, and identical for every node, so the second one hid under the
 first — in the saved `_layout` as well as on screen.
+
+## Provisioning in advance (`/internal/provision`)
+
+Optional, off unless both variables are set. Without it a profile — and its
+welcome map — is born the first time somebody opens ArguMap. With it, Borant ID
+says who is coming as soon as it grants access, so a class exists here the
+evening before and can be put into courses before the first lecture instead of
+during it.
+
+**Not reachable from the internet, by construction.** The route is not in the
+Caddy config at all: the gate calls the container directly over a docker network
+the two share. Two locks, and missing either makes the route answer 404 as
+though it were not there — `PROVISION_SECRET` (the credential, compared in
+constant time) and `PROVISION_TRUSTED` (the CIDR the gate's container is on).
+
+Wiring:
+
+```bash
+docker network create borant_provision
+docker network inspect borant_provision -f '{{(index .IPAM.Config 0).Subnet}}'
+```
+
+Read that subnet off the command, do not guess it: `172.17.0.0/16` is the
+*default bridge* and not this network. Put it in `PROVISION_TRUSTED`, join both
+compose files to the network (`networks: [default, borant_provision]` on the
+service, `external: true` on the network), set the secret, and restart. Then in
+the gate's `/admin/apps` → ArguMap fill in the same secret and
+
+```
+http://argumap:8000/internal/provision
+```
+
+— the container's own name and the port it listens on **inside** the container,
+which is 8000 and not the 8012 published on the host. «Resync» there pushes
+everyone who already has a grant, and the numbers it prints are the proof the
+wiring works.
+
+**It creates and nothing else.** No profile updated, no role changed, nothing
+deactivated: a stolen secret buys empty accounts, not somebody's maps. And it
+does **not** link by address — an incoming address already held by an unlinked
+local row comes back as a conflict, untouched, for `map_borant.py` to resolve by
+hand. That matters more here than anywhere: in this app one person legitimately
+holds several rows under different addresses, so guessing would be wrong more
+often than elsewhere.
+
+**A pushed profile gets the welcome map**, because both roads go through the
+same `provision()`. That is rule 4 of the perimeter's checklist, and it was
+written after this very app opened empty for profiles born at the gate.
 
 ## The landing, the home, and the role hint
 

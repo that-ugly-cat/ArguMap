@@ -18,6 +18,28 @@ ArguMap has five roles; each inherits the capabilities of the one below it.
 
 The **course overview, templates & annotation** column is the teacher tier: reviewing and editing course maps, authoring/pushing guided templates, and running collaborative annotation. It is granted by the `view_course_maps` permission, which both **teacher** and **admin** hold.
 
+### Role and course listing are two separate switches
+
+This is the single most common source of confusion, so it is worth stating plainly. Teaching a course takes **both**:
+
+1. the **teacher** (or **admin**) role on the account — *may this person teach at all*;
+2. being listed as a **teacher of that course** (Courses → Manage → add teacher) — *which courses*.
+
+Neither half works alone. Someone listed on a course with the **full** role gets *Forbidden* on the course page and on every student map — the listing is there, the permission is not. Conversely, a teacher listed on no course sees an empty **My Courses**.
+
+**`teacher` is exactly `full` plus `view_course_maps`.** Promoting a colleague from **full** to **teacher** takes nothing away and grants no new spending: `pipeline` and `debate` are the two capabilities that consume the API key, and **full** already has both. If cost is the worry, the lever is the monthly budget (§5), not the role.
+
+Note that adding a teacher to a course **requires the role first**: the form refuses an account that does not already hold `view_course_maps`. Change the role, then add them to the course.
+
+### Who can open which map
+
+| The map is… | Its owner | A teacher of its course | An admin |
+|---|:--:|:--:|:--:|
+| assigned to a course | ✓ | ✓ | ✓ |
+| not assigned to any course | ✓ | — | — |
+
+A map with no course is private to whoever wrote it, **admins included**. Assignment to a course is the hand-in, and there is no back door around it: to review a student's work, the student must have handed it in (User Guide §2). Anyone who can open a map can also edit it and run its annotation layer, class code and QR included.
+
 **When to use each role:**
 - **basic** — construct maps by hand only (e.g. introductory exercises where the pipeline would short-circuit the learning goal).
 - **standard** — typical students: manual/guided construction + automated analysis.
@@ -61,7 +83,7 @@ After import, a results panel shows created users (auto-generated passwords high
 ## 4. Managing courses
 
 - **Create** — enter a name in the Courses section → **Create**.
-- **Manage** — open a course's detail page to add/remove **students** and add/remove **teachers**. A course can have several teachers (they all see it under *My Courses* and can review, edit, and annotate its maps).
+- **Manage** — open a course's detail page to add/remove **students** and add/remove **teachers**. A course can have several teachers (they all see it under *My Courses* and can review, edit, and annotate its maps). Give the account the **teacher** role before adding it here — the form rejects accounts that do not have it (§1).
 - **Delete** — confirms twice if students are enrolled; users and their maps are kept, but the maps lose their course assignment.
 
 ---
@@ -79,8 +101,8 @@ Per-user token consumption and estimated spend for the current month.
 ## 6. Typical setup for a new course
 
 1. **Create the course** — Courses → name → Create.
-2. **Create or import students** — single form or Excel import (put the course name in the `course` column for automatic enrollment).
-3. **Assign a teacher** — Manage the course → add the teacher by email.
+2. **Create or import students** — single form or Excel import (put the course name in the `course` column for automatic enrollment). Enrolment lets a student *hand a map in*; it does not hand anything in by itself.
+3. **Assign a teacher** — set their role to **teacher** first, then Manage the course → add them by email. Both steps, every time (§1).
 4. **Set budgets** (optional) — Usage section.
 5. **Share credentials** — distribute emails/passwords; remind students to change their password after first login.
 6. **Prepare materials** — as a teacher yourself you can author guided **templates** and share their links, and open maps for **annotation** (see the Teacher Guide).

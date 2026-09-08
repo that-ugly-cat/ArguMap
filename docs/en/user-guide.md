@@ -21,7 +21,15 @@ After signing in you land on your personal dashboard.
 - **✕** deletes the map (asks for confirmation).
 
 **Filter by course** — if you have maps in several courses, a dropdown above the list lets you show only one course's maps.
-**Move a map** — each card has a small course dropdown on the right to reassign the map, no reload needed.
+
+**Handing a map in to a course** — a map you save is yours and stays in your dashboard. It does **not** reach a course on its own, even if you belong to exactly one. Handing it in is a deliberate act, and there are two moments to do it:
+
+- **When you save it** — the toolbar (and the pipeline dialog) has a course dropdown, which starts on *— no course —*. Pick a course there and the map is handed in as it is saved.
+- **Afterwards** — each card in the dashboard has a small course dropdown on the right. Choose a course to hand the map in, or *— no course —* to withdraw it. No reload needed.
+
+Once a map is in a course, the teachers of that course can open, review and edit it. A map with no course is visible to you alone.
+
+A map you create from a **template link** (§6) is the exception: it is handed in to the template's course from the start, because that is what the assignment is.
 
 ---
 
@@ -63,10 +71,17 @@ Guided mode walks you down from the thesis, one inferential step at a time.
 | **Dashboard ←** | Return to My Maps |
 | **Select / Connect / Guided / Annotate** | Interaction modes (below) |
 | **Save** | Save the current state |
+| **Course** | On an unsaved map: which course to hand it in to. Starts on *— no course —* |
+| **− / + / ⤢** | Zoom out · zoom in · fit the whole map on screen |
 | **Recap** | Show all fallacies and biases in the map, in two tables |
 | **Import JSON / Clear all** | Load a map file / empty the canvas |
 | **Share / Export** | Read-only link · download as JSON, SVG, or PNG |
 | **?** | Help panel |
+
+### Moving around the canvas
+- **Pan** — drag an empty part of the canvas.
+- **Zoom** — scroll the wheel, or pinch on a trackpad; the zoom follows the size of the gesture and stays centred on the pointer. The **−**, **+** and **⤢** buttons do the same without a pointing device.
+- **A new node appears where you are looking** — nodes you add land in the visible area, cascading off whatever is already there, so two in a row never end up on top of each other.
 
 ### Panels
 - **Left panel** — add nodes by type; set the edge router style (Metro / Normal / ER).

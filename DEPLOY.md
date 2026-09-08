@@ -166,6 +166,35 @@ Roles and permissions are seeded automatically. The hierarchy is:
 | `teacher` | full + view all maps in own courses |
 | `admin` | all permissions + admin panel |
 
+**Two switches, not one.** The role says whether an account may teach; the
+`course_teachers` junction says which courses. Both are required, and they are
+set in different places, so an account can sit in `course_teachers` with the
+`full` role and get 403 everywhere that matters — the state Nikola, Anna and
+Enrico were in until 8 Sep 2026. `teacher` is exactly `full` plus
+`view_course_maps`, which spends nothing: `pipeline` and `debate` are the two
+that touch the API key and `full` already holds both.
+
+Loosening the code instead of promoting the role does not work as a half
+measure. `_may_admin_map` is the last of a series: the course page,
+`/api/courses/{id}/maps`, `/api/courses` and the template editor all gate on
+`view_course_maps` on their own, so an account without it could at best open a
+student map from a link it has no way to obtain.
+
+**Who may open a map** — one rule, `_may_admin_map()`, used by `get_map`,
+`update_map`, `open_map`, `_map_annot_admin` and `debate` (it was six divergent
+copies until 8 Sep 2026, and `admin` was missing from all of them):
+
+- the owner, always;
+- on someone else's map: a teacher of the course it is assigned to, or an admin;
+- **a map with no course is visible to its owner alone, admins included.**
+
+That last line is load-bearing. Assignment to a course *is* the hand-in, and as
+of 8 Sep 2026 nothing assigns it automatically — saving a map used to file it
+into the author's course whenever they belonged to exactly one, with the course
+selector hidden in precisely that case. Now the selector is shown from one
+course up and starts on "no course"; templates still assign their own course,
+which is what an assignment is.
+
 ---
 
 ## Logs
@@ -189,9 +218,12 @@ AUTH_MODE=gateway               the upstream gate vouches via X-Borant-Sub
 
 **No role that can spend is ever provisioned from a header.** A profile created
 from the gate gets `basic`, whatever the hint says, because `basic` has no
-`pipeline` permission. This matters more here than elsewhere: `_check_budget`
-returns immediately when `monthly_budget_usd` is NULL, and that is the current
-state of every account. Promotion stays a human click in `/admin`.
+`pipeline` permission. Promotion stays a human click in `/admin`.
+
+`_check_budget` returns immediately when `monthly_budget_usd` is NULL, so an
+account with no ceiling is an account with no brake. That used to be every
+account; as of 8 Sep 2026 all twelve carry one, at $200. Check before assuming
+either way — `SELECT count(*) FROM users WHERE monthly_budget_usd IS NULL`.
 
 `BORANT_TRUSTED_PROXY` is measured from the app's log after a real request, not
 deduced. Local login and self-service registration close in `gateway`; logout
@@ -272,6 +304,18 @@ Two deployment notes:
   say `http://`; Caddy sends it, and the fallback is a scheme the proxy
   redirects anyway.
 
+**The code is minted in two places, and backfilled once.** Originally only
+`POST /annotate/open` minted it — which a map whose layer was *already* open
+before 24 Aug 2026 never passes through again. Those maps showed the sharing
+link, no code and no QR, and since the layer reads as open the panel offers only
+`Close`: the code could not be obtained at all. Mostly the students' course
+maps, which is why it looked like a permissions problem. Fixed on 8 Sep 2026 in
+two layers: an additive migration in `init_db()` gives a code to every map with
+an `annotate_token` and no `join_code` (3 of 6 on production), and `open_map`
+mints one on sight for anyone who may administer the layer. A map that never had
+an annotation layer stays without a code — the code is born with the layer, and
+minting unused ones would only widen what is there to guess.
+
 Codes are six digits where RoomPulse uses five. In a session where both tools
 are on the slides, a code typed into the wrong app fails on its length before
 any lookup, instead of quietly resolving onto someone else's map.
@@ -280,6 +324,27 @@ Failed lookups are counted per client IP: past 30 in a minute the route sleeps
 a second before answering, past 200 it returns 429. The soft step is
 deliberate — a lecture hall is one NATed address, so a hard block after a few
 dozen collective typos would lock out the students who typed correctly.
+
+## The viewer does its own zoom, on purpose
+
+X6's `mousewheel` widget is switched off in `automap_v2_x6.py`. It reads only
+the *sign* of `deltaY` and applies a fixed step once per animation frame, which
+is one step for a mouse notch and thirty to a hundred for a Mac trackpad swipe
+— the gesture plus its inertia — so the map slammed into `minScale` or
+`maxScale` before the hand stopped moving. The replacement scales by the delta
+(`exp(-dy * k)`, `k` tuned so a 100px notch still lands on the old 1.1x).
+
+Safari never turns a trackpad pinch into a `ctrl`+wheel event the way Chrome and
+Firefox do; it fires `gesturestart`/`gesturechange`/`gestureend` with a
+cumulative scale. Those are handled too, **scoped to the canvas** so a pinch over
+the side panels still zooms the page and Safari's own accessibility zoom
+survives. If either handler is ever removed, Mac users lose zoom and nobody else
+notices — which is exactly how this went unreported for months.
+
+`addNode` places new nodes in the *visible* area, cascading off what is already
+there. It used to use the fixed graph point `{80, 80}`: invisible as soon as the
+canvas was panned, and identical for every node, so the second one hid under the
+first — in the saved `_layout` as well as on screen.
 
 ## The landing, the home, and the role hint
 

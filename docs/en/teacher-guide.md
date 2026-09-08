@@ -6,7 +6,9 @@ This guide covers what teachers can do beyond the [User Guide](/docs/user-guide)
 
 ## 1. Your role
 
-An administrator associates you with one or more courses. You can:
+Being a teacher takes **two** things, and they are set separately: the **teacher role** on your account, and being **listed as a teacher of a course**. The role says you may teach; the course listing says where. Having only one of the two gets you nothing — if you are listed on a course but your account is still `full`, every course page and every student map answers *Forbidden*. Ask an administrator to check both (Admin Guide §1).
+
+With both in place, you can:
 
 - Use ArguMap yourself (pipeline, guided, manual, viewer, Debate-A-Bot) — same as students.
 - Open your course page to see enrolled students and their submitted maps.
@@ -26,6 +28,8 @@ Click **My Courses**, then **Manage** on a course. The course page shows:
 
 - **Enrolled students** — the roster (adding/removing students is an admin action).
 - **Submitted maps** — every map assigned to this course, with **Open →** for each.
+
+> **A map reaches the course only when the student hands it in.** Saving does not do it, and being enrolled in a single course does not do it either: the student picks the course from a dropdown, when saving or later from their dashboard card. A map that never appears here may simply have never been handed in — worth saying out loud when you set the exercise. Maps created from a **template link** are the exception: they arrive in the template's course from the start.
 
 ---
 
@@ -71,7 +75,7 @@ You can open any map you can edit (your own, or a student's course map) for the 
 Turn on **Annotate** in the viewer toolbar. In the panel:
 
 - **Open annotation** — generates a shareable `.../annotate/...` link and starts accepting annotations. **Copy link** and share it (students need no account — an anonymous identity is used if they aren't logged in).
-- **Class code** — the same session, for a room. The map gets a six-digit code the first time you open annotation and keeps it for good; students go to `.../join`, type the code, and land straight in the annotation. **Show on projector** blows the code and its QR up to full screen — click anywhere to dismiss. Use the code in the room and the link for anything you send in writing.
+- **Class code** — the same session, for a room. The map gets a six-digit code and keeps it for good; students go to `.../join`, type the code, and land straight in the annotation. **Show on projector** blows the code and its QR up to full screen — click anywhere to dismiss. Use the code in the room and the link for anything you send in writing. The code, the QR and the projector view are there on **any** map you can administer, your own and your students' course maps alike.
 - **Anonymous sharing** — tick this to hide your name from annotators (they see *"someone's map"*).
 - **New session (clear)** — archives the current annotations and starts a clean layer (nothing is deleted).
 - **Detached** — review/clear annotations left orphaned when a node/edge was removed.
@@ -82,7 +86,7 @@ The code only works while annotation is **open**. Close the session and it stops
 - Students click nodes/edges and add **plausibility (1–5)**, **comments**, and **fallacy/bias** flags (from the catalog). On the map you see a **distribution bar** of plausibility, a comment badge, and coloured fallacy/bias chips — refreshing live.
 - Select a node yourself and its thread appears in the edit panel, alongside the edit fields — so you can read the comments and edit the node in one place.
 - You can **delete any annotation** (moderation), not just your own.
-- Because you can edit the map while annotation is on, your structural changes are **saved automatically and appear live** for everyone viewing the link.
+- Because you can edit the map while annotation is on, your structural changes are **saved automatically and appear live** for everyone viewing the link. That includes **adding nodes**: there is no need to close the session first — add the node and the room sees it within a couple of seconds. New nodes land in the part of the canvas you are looking at, so what you add is what the projector shows.
 
 ---
 

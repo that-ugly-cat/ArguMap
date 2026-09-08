@@ -652,8 +652,12 @@ _HTML = """\
     }
     .tb-select:focus { outline: none; border-color: #63b3ed; }
 
-    /* Fit-to-screen button: hidden on desktop, shown on narrow screens. */
-    #btn-fit { display: none; align-items: center; justify-content: center; font-size: 15px; line-height: 1; }
+    /* Zoom controls: the only zoom affordance that does not depend on the
+       pointing device behaving, which on a Mac trackpad it may not. */
+    #btn-fit, #btn-zoom-in, #btn-zoom-out {
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 15px; line-height: 1; min-width: 28px;
+    }
 
     /* --- Mobile / touch: collapse editing chrome, view maps full-bleed --- */
     @media (max-width: 820px) {
@@ -697,7 +701,9 @@ _HTML = """\
   <span id="guided-indicator" data-i18n="x6_guided_title">Guided construction</span>
   <span id="mode-hint" data-i18n="x6_mode_hint">Click source &#x2192; click target</span>
   <div style="display:flex;gap:4px;flex-shrink:0;margin-left:auto">
-    <button class="tb-btn" id="btn-fit" onclick="fitView()" title="Fit map to screen">&#x2922;</button>
+    <button class="tb-btn desktop-only" id="btn-zoom-out" onclick="zoomStep(-1)" data-i18n-title="x6_zoom_out" title="Zoom out">&#x2212;</button>
+    <button class="tb-btn desktop-only" id="btn-zoom-in"  onclick="zoomStep(1)"  data-i18n-title="x6_zoom_in"  title="Zoom in">+</button>
+    <button class="tb-btn" id="btn-fit" onclick="fitView()" data-i18n-title="x6_zoom_fit" title="Fit map to screen">&#x2922;</button>
     <button class="tb-btn desktop-only" onclick="importJSON()" data-i18n="x6_import_json">Import JSON</button>
     <button class="tb-btn desktop-only" onclick="openRecap()" data-i18n="x6_recap_btn">Recap</button>
     <button class="tb-btn tb-danger desktop-only" onclick="clearAll()" data-i18n="x6_clear_all">Clear all</button>
@@ -948,6 +954,10 @@ function applyTranslations() {
     var key = el.getAttribute('data-i18n-ph');
     if (T[key] !== undefined) el.placeholder = T[key];
   });
+  document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n-title');
+    if (T[key] !== undefined) el.title = T[key];
+  });
 }
 applyTranslations();
 
@@ -1101,7 +1111,9 @@ const graph = new X6.Graph({
   autoResize:  true,
   grid:        { visible: true, type: 'dot', args: { color: '#d9d9d9', thickness: 1 } },
   background:  { color: '#f0f2f5' },
-  mousewheel:  { enabled: true, zoomAtMousePosition: true, factor: 1.1, minScale: 0.2, maxScale: 4 },
+  // X6's own wheel zoom is off: it ignores how far the wheel turned. See the
+  // zoom section below, which replaces it.
+  mousewheel:  { enabled: false },
   panning:     { enabled: true },
   // Evaluated per interaction: on narrow screens nodes are locked so a
   // one-finger drag always pans instead of moving a node (read-only viewing).
@@ -1111,9 +1123,68 @@ const graph = new X6.Graph({
   },
 });
 
-// Mac trackpad: a pinch gesture arrives as a wheel event with ctrlKey set, which
-// browsers turn into a page zoom. Swallow the default so only the canvas zooms.
-container.addEventListener('wheel', function(e) { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+// --- Zoom ---
+// X6's built-in wheel zoom reads only the *sign* of deltaY and applies a fixed
+// step once per animation frame. A mouse notch is one event in one frame, so on
+// Windows that reads as one step; a Mac trackpad streams events for the whole
+// swipe plus about a second of inertia after the fingers lift, so the same
+// gesture fires thirty to a hundred steps and pins the map against minScale or
+// maxScale before the hand has stopped moving. We zoom by the delta instead, so
+// the map moves as far as the gesture actually went.
+const ZOOM_MIN = 0.2, ZOOM_MAX = 4;
+// Exponent per pixel of delta: a 100px mouse notch lands on the 1.1x step this
+// used to have, while a 3px trackpad nudge is a barely visible 1.003x. Pinch
+// deltas are coarser than scroll deltas, hence the separate constant.
+const ZOOM_K_SCROLL = 0.00095, ZOOM_K_PINCH = 0.0075;
+
+function clampZoom(scale) { return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale)); }
+
+// Zoom by a multiplicative factor, keeping the point under the cursor fixed when
+// one is given (toolbar buttons pass none and zoom about the canvas centre).
+function zoomBy(factor, clientX, clientY) {
+  const current = graph.zoom();
+  const next = clampZoom(current * factor);
+  if (next === current) return;
+  if (clientX == null) graph.zoomTo(next);
+  else graph.zoom(next, { absolute: true, center: graph.clientToGraph(clientX, clientY) });
+}
+
+function zoomStep(direction) { zoomBy(direction > 0 ? 1.2 : 1 / 1.2); }
+
+container.addEventListener('wheel', function (e) {
+  // Unconditional, as X6's own handler was: no page scroll behind the canvas,
+  // and no browser page zoom when ctrl+wheel arrives from a trackpad pinch.
+  e.preventDefault();
+  // deltaMode 1 counts lines and 2 counts pages; normalise both to pixels.
+  const unit = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? container.clientHeight : 1);
+  const dy = e.deltaY * unit;
+  if (!dy) return;
+  // ctrlKey on a wheel event is a trackpad pinch — Chrome, Edge and Firefox on
+  // macOS report it that way. Safari does not: see the gesture handlers below.
+  zoomBy(Math.exp(-dy * (e.ctrlKey ? ZOOM_K_PINCH : ZOOM_K_SCROLL)), e.clientX, e.clientY);
+}, { passive: false });
+
+// Safari on macOS never turns a trackpad pinch into a ctrl+wheel event: it fires
+// its own gesturestart/gesturechange/gestureend with a cumulative scale relative
+// to the start of the gesture. Without these, the pinch — the natural zoom
+// gesture on a Mac — zooms the browser page and leaves the map untouched. Scoped
+// to the canvas on purpose, so pinching over the panels still zooms the page.
+let _gestureBase = null;
+container.addEventListener('gesturestart', function (e) {
+  e.preventDefault();
+  _gestureBase = { scale: graph.zoom(), x: e.clientX, y: e.clientY };
+}, { passive: false });
+container.addEventListener('gesturechange', function (e) {
+  e.preventDefault();
+  if (!_gestureBase) return;
+  const next = clampZoom(_gestureBase.scale * e.scale);
+  if (next !== graph.zoom())
+    graph.zoom(next, { absolute: true, center: graph.clientToGraph(_gestureBase.x, _gestureBase.y) });
+}, { passive: false });
+container.addEventListener('gestureend', function (e) {
+  e.preventDefault();
+  _gestureBase = null;
+}, { passive: false });
 
 // --- Touch gestures for read-only viewing on mobile ---
 // X6's native panning does not fire reliably on touch, so we drive pan/zoom
@@ -1147,7 +1218,7 @@ container.addEventListener('wheel', function(e) { if (e.ctrlKey) e.preventDefaul
     if (!isMobile()) return;
     if (gesture === 'pinch' && e.touches.length === 2 && baseDist > 0) {
       e.preventDefault();
-      const next = Math.min(4, Math.max(0.2, baseScale * (fingerDist(e.touches) / baseDist)));
+      const next = clampZoom(baseScale * (fingerDist(e.touches) / baseDist));
       graph.zoomTo(next);
       return;
     }
@@ -1826,6 +1897,32 @@ function _nextNodeId(type) {
   return prefix + ((nums.length ? Math.max(...nums) : 0) + 1);
 }
 
+// Where a new node goes. This used to be the fixed graph point {80, 80}, which
+// fails twice: those are graph coordinates, so as soon as the canvas is panned
+// or zoomed away the node lands outside the viewport and looks like nothing
+// happened; and two nodes in a row landed on the very same spot, the second
+// hidden underneath the first — in the map and in the saved layout with it.
+// So: inside what the user is actually looking at, cascading off whatever is
+// already there.
+function _freeSpot(w, h) {
+  const area   = graph.getGraphArea();     // the visible viewport, in graph coords
+  const startX = area.x + 40, startY = area.y + 40;
+  const taken  = graph.getNodes().map(function(n) { return { p: n.position(), s: n.size() }; });
+  const STEP   = 30;
+  for (let i = 0; i < 40; i++) {
+    const x = startX + i * STEP, y = startY + i * STEP;
+    // Past the far edge there is no point cascading further: fall back below.
+    if (x + w > area.x + area.width || y + h > area.y + area.height) break;
+    const overlaps = taken.some(function(t) {
+      return x < t.p.x + t.s.width && x + w > t.p.x && y < t.p.y + t.s.height && y + h > t.p.y;
+    });
+    if (!overlaps) return { x: x, y: y };
+  }
+  // Crowded viewport: top-left corner. Overlapping something is bad, being
+  // off-screen is worse.
+  return { x: startX, y: startY };
+}
+
 function addNode(type) {
   _pushUndo();
   const isJoiner = type === 'linked_joiner';
@@ -1834,7 +1931,7 @@ function addNode(type) {
   const w     = isJoiner ? _JOINER_SIZE : 220;
   const h     = isJoiner ? _JOINER_SIZE : 55;
   const node  = graph.addNode(makeNodeDef(
-    { id, type, content: label, notes: '', width: w, height: h }, { x: 80, y: 80 }
+    { id, type, content: label, notes: '', width: w, height: h }, _freeSpot(w, h)
   ));
   selectNode(node);
   if (type === 'claim') setTimeout(function() { addClaimRipple(node); }, 50);

@@ -525,6 +525,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_sc_undo':           'Undo',           'x6_sc_redo':    'Redo',
         'x6_sc_delete_sel':     'Remove selected node or edge',
         'x6_sc_zoom':           'Zoom in / out',  'x6_sc_pan':     'Pan the view',
+
+        # toolbar — zoom controls
+        'x6_zoom_in':  'Zoom in',
+        'x6_zoom_out': 'Zoom out',
+        'x6_zoom_fit': 'Fit map to screen',
     },
 
     'it': {
@@ -1014,6 +1019,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_sc_undo':           'Annulla',        'x6_sc_redo':    'Ripeti',
         'x6_sc_delete_sel':     'Rimuovi nodo o arco selezionato',
         'x6_sc_zoom':           'Zoom in / out',  'x6_sc_pan':     'Sposta la vista',
+
+        # toolbar — controlli di zoom
+        'x6_zoom_in':  'Ingrandisci',
+        'x6_zoom_out': 'Riduci',
+        'x6_zoom_fit': 'Adatta la mappa allo schermo',
 
         # ── Map viewer (web UI injected by _inject_web_ui) ────────────────────
         'viewer_back':          '← Dashboard',
@@ -1565,6 +1575,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_sc_undo':           'Rückgängig',     'x6_sc_redo':    'Wiederholen',
         'x6_sc_delete_sel':     'Ausgewählten Knoten oder Kante entfernen',
         'x6_sc_zoom':           'Hinein- / Herauszoomen', 'x6_sc_pan': 'Ansicht verschieben',
+
+        # Toolbar — Zoom-Steuerung
+        'x6_zoom_in':  'Vergrößern',
+        'x6_zoom_out': 'Verkleinern',
+        'x6_zoom_fit': 'Karte einpassen',
     },
 }
 

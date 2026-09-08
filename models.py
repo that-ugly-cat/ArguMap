@@ -18,6 +18,7 @@ This is intentional but fragile: column type changes are not handled.
 """
 import copy
 import os
+import secrets
 from datetime import datetime
 from sqlalchemy import (
     Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String, Text,
@@ -351,6 +352,32 @@ def init_db():
                 conn.commit()
             except Exception:
                 pass
+        # 2026-09-08. Il codice d'aula lo coniava solo POST /annotate/open, e
+        # una mappa il cui layer era gia' aperto prima del 24 ago 2026 non ci
+        # ripassa mai: il pannello di condivisione le mostra il link, nessun
+        # codice e nessun QR, e siccome il layer risulta aperto offre solo
+        # «Chiudi» — quindi da li' il codice non si ottiene piu'. Sono in gran
+        # parte le mappe dei corsisti, aperte durante il corso di agosto. Chi ha
+        # un layer di annotazione ha un codice, una volta per tutte.
+        try:
+            senza = conn.execute(text(
+                "SELECT id FROM maps WHERE annotate_token IS NOT NULL AND join_code IS NULL"
+            )).fetchall()
+            presi = {r[0] for r in conn.execute(text(
+                "SELECT join_code FROM maps WHERE join_code IS NOT NULL"
+            )).fetchall()}
+            for (map_id,) in senza:
+                for _ in range(50):
+                    code = str(secrets.randbelow(900000) + 100000)
+                    if code in presi:
+                        continue
+                    presi.add(code)
+                    conn.execute(text("UPDATE maps SET join_code = :c WHERE id = :i"),
+                                 {"c": code, "i": map_id})
+                    break
+            conn.commit()
+        except Exception:
+            pass
         # Migrate legacy teacher_id values into the junction table
         try:
             conn.execute(text(

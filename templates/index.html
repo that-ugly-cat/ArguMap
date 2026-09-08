@@ -476,14 +476,12 @@
 
 <script>
   let _courses = [];
-  let _defaultCourseId = null;
   let _courseName = {};
   let _allMaps = [];
 
   async function loadCourses() {
     const res = await fetch('/api/courses');
     _courses  = await res.json();
-    if (_courses.length === 1) _defaultCourseId = _courses[0].id;
     _courses.forEach(c => _courseName[c.id] = c.name);
   }
 
@@ -605,7 +603,9 @@
   });
 
   function openPipeline() {
-    if (_courses.length > 1) {
+    // Il corso si sceglie, non si eredita: anche chi e' iscritto a un corso solo
+    // vede la tendina, e parte da «nessun corso». La consegna e' un gesto.
+    if (_courses.length > 0) {
       const sel = document.getElementById('course-select');
       sel.innerHTML = `<option value="">${escHtml(T.app_no_course)}</option>`
         + _courses.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
@@ -682,9 +682,8 @@
     const finalSpinner = progress.querySelector('.spinner-row');
     if (finalSpinner) finalSpinner.remove();
 
-    const courseId = _courses.length === 1 ? _defaultCourseId
-                   : _courses.length  >  1 ? (parseInt(document.getElementById('course-select').value) || null)
-                   : null;
+    const sel = document.getElementById('course-select');
+    const courseId = (sel && parseInt(sel.value)) || null;
     const save = await fetch('/api/maps', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

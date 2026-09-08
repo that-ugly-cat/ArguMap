@@ -372,8 +372,21 @@ docker network inspect borant_provision -f '{{(index .IPAM.Config 0).Subnet}}'
 Read that subnet off the command, do not guess it: `172.17.0.0/16` is the
 *default bridge* and not this network. Put it in `PROVISION_TRUSTED`, join both
 compose files to the network (`networks: [default, borant_provision]` on the
-service, `external: true` on the network), set the secret, and restart. Then in
-the gate's `/admin/apps` → ArguMap fill in the same secret and
+service, `external: true` on the network), set the secret, and restart.
+
+**And widen `BORANT_TRUSTED_PROXY` in the same breath.** A second network
+changes which gateway the proxy's requests appear to come from: docker picks
+among them in alphabetical order of network name, so whether it changes for a
+given app is decided by its project name. ArguMap got lucky — `argumap_default`
+sorts ahead of `borant_provision` and nothing moved — while RoomPulse did not,
+and locked everyone out until the list was widened (8 Sep 2026). Luck is not a
+configuration:
+
+```
+BORANT_TRUSTED_PROXY=172.20.0.1,192.168.240.1
+```
+
+Then in the gate's `/admin/apps` → ArguMap fill in the same secret and
 
 ```
 http://argumap:8000/internal/provision

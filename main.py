@@ -551,18 +551,40 @@ def get_reasoning(map_id: int, user: User = Depends(get_current_user), db: Sessi
     return m.reasoning
 
 
+def _may_admin_map(m: Map, user: User, db: Session) -> bool:
+    """Chi puo' vedere e amministrare una mappa: il proprietario sempre, e sulle
+    mappe altrui chi e' docente del corso a cui la mappa e' assegnata — o admin.
+
+    Due cose stavano storte, e stavano storte in sei copie divergenti dello
+    stesso controllo. L'admin era previsto nei controlli sul *corso*
+    (`/api/courses/...`) e non in quelli sulla *mappa*: poteva elencare le mappe
+    di un corso e poi prendere 403 aprendone una. E il permesso
+    `view_course_maps` faceva da secondo cancello silenzioso dietro
+    l'appartenenza a `course_teachers`.
+
+    Quello che resta invariante: una mappa **senza corso** e' visibile al solo
+    proprietario, admin compresi. L'assegnazione al corso e' la consegna, e
+    l'admin non e' un passe-partout sui quaderni di chiunque."""
+    if m.user_id == user.id:
+        return True
+    if not m.course_id:
+        return False
+    if user.has_permission("admin"):
+        return True
+    if not user.has_permission("view_course_maps"):
+        return False
+    course = db.query(Course).filter(Course.id == m.course_id).first()
+    return bool(course and any(t.id == user.id for t in course.teachers))
+
+
 @app.get("/api/maps/{map_id}")
 def get_map(map_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     m = db.query(Map).filter(Map.id == map_id).first()
     if not m:
         raise HTTPException(404, "Map not found")
     # teacher can see maps from their courses; students only own maps
-    if m.user_id != user.id:
-        if not user.has_permission("view_course_maps"):
-            raise HTTPException(403, "Forbidden")
-        course = db.query(Course).filter(Course.id == m.course_id).first()
-        if not course or not any(t.id == user.id for t in course.teachers):
-            raise HTTPException(403, "Forbidden")
+    if not _may_admin_map(m, user, db):
+        raise HTTPException(403, "Forbidden")
     return m.map_data
 
 
@@ -572,13 +594,8 @@ def update_map(map_id: int, body: MapSave, user: User = Depends(get_current_user
     if not m:
         raise HTTPException(404, "Map not found")
     # The owner can edit; a teacher of the map's course may also edit student maps.
-    if m.user_id != user.id:
-        ok = False
-        if user.has_permission("view_course_maps") and m.course_id:
-            c = db.query(Course).filter(Course.id == m.course_id).first()
-            ok = bool(c and any(t.id == user.id for t in c.teachers))
-        if not ok:
-            raise HTTPException(403, "Forbidden")
+    if not _may_admin_map(m, user, db):
+        raise HTTPException(403, "Forbidden")
     m.title    = body.title
     m.map_data = body.map_data
     # SQLAlchemy does not track in-place mutations on JSON columns.
@@ -1130,8 +1147,6 @@ def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasonin
   toolbar.insertBefore(backBtn, toolbar.firstChild);
 
   // Save button (owners only) — or read-only badge for reviewers
-  let _userCourses = [];
-
   if (!IS_OWNER) {{
     const badge = document.createElement('span');
     badge.textContent = UI_T.viewer_reviewing.replace('{{name}}', OWNER_NAME);
@@ -1166,13 +1181,10 @@ def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasonin
           return;
         }}
       }} else {{
-        let courseId = null;
-        if (_userCourses.length === 1) {{
-          courseId = _userCourses[0].id;
-        }} else if (_userCourses.length > 1) {{
-          const sel = document.getElementById('_course-sel');
-          if (sel) courseId = parseInt(sel.value) || null;
-        }}
+        // Nessun corso di default: una mappa nasce nella dashboard di chi la
+        // scrive, e finisce in un corso solo se lo si e' scelto qui sopra.
+        const csel = document.getElementById('_course-sel');
+        const courseId = (csel && parseInt(csel.value)) || null;
         const res = await fetch('/api/maps', {{
           method: 'POST',
           headers: {{'Content-Type':'application/json'}},
@@ -1281,11 +1293,12 @@ def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasonin
     toolbar.appendChild(shareBtn);
   }}
 
-  // For new maps: fetch courses and inject a select in the toolbar if there are multiple
+  // For new maps: fetch courses and offer the choice in the toolbar. Shown from
+  // one course up — it used to appear only with two or more, and with exactly
+  // one the map was filed into it silently.
   if (!MAP_ID) {{
     fetch('/api/courses').then(r => r.json()).then(courses => {{
-      _userCourses = courses;
-      if (courses.length > 1) {{
+      if (courses.length > 0) {{
         const label = document.createElement('label');
         label.textContent = UI_T.viewer_course;
         label.style.cssText = 'font-size:.75rem;color:#a0aec0;white-space:nowrap;align-self:center;margin-right:2px';
@@ -1514,12 +1527,8 @@ def open_map(map_id: int, request: Request, session: str | None = Cookie(default
     m = db.query(Map).filter(Map.id == map_id).first()
     if not m:
         raise HTTPException(404, "Map not found")
-    if m.user_id != user.id:
-        if not user.has_permission("view_course_maps"):
-            raise HTTPException(403, "Forbidden")
-        course = db.query(Course).filter(Course.id == m.course_id).first()
-        if not course or not any(t.id == user.id for t in course.teachers):
-            raise HTTPException(403, "Forbidden")
+    if not _may_admin_map(m, user, db):
+        raise HTTPException(403, "Forbidden")
     lang = _get_lang(request)
     is_owner = m.user_id == user.id
     # Guided mode can be requested on an existing map (e.g. a template instance).
@@ -1529,15 +1538,20 @@ def open_map(map_id: int, request: Request, session: str | None = Cookie(default
         tmpl = db.query(Template).filter(Template.id == m.template_id).first()
         slots = tmpl.slots if tmpl else None
     html = generate_html_x6(m.map_data, "output.html", return_html=True, lang=lang, guided=guided, slots=slots)
-    # The owner — or a teacher of the map's course — can open/manage the annotation layer.
-    can_admin = is_owner
-    if not can_admin and user.has_permission("view_course_maps") and m.course_id:
-        c = db.query(Course).filter(Course.id == m.course_id).first()
-        can_admin = bool(c and any(tt.id == user.id for tt in c.teachers))
-    annotate = {"map_id": m.id, "can_admin": can_admin, "can_write": bool(m.annotate_open),
+    # Rete di sicurezza per la stessa lacuna che init_db() sana all'avvio: il
+    # codice d'aula nasceva solo nell'apertura del layer, quindi una mappa con
+    # token e senza codice non poteva piu' averne uno. Chi amministra il layer —
+    # proprietario o docente del corso, indifferentemente — lo conia guardandola.
+    if m.annotate_token and not m.join_code:
+        m.join_code = _new_join_code(db)
+        db.commit()
+    # Chi e' arrivato fin qui ha superato il cancello, che chiede esattamente la
+    # stessa cosa: la rotta non ha spettatori di sola lettura, e chi vede la
+    # mappa amministra il suo layer di annotazione.
+    annotate = {"map_id": m.id, "can_admin": True, "can_write": bool(m.annotate_open),
                 "auto": False, "token": m.annotate_token, "anon": bool(m.annotate_anon),
-                "join_code": m.join_code, "can_edit": can_admin} if can_admin else None
-    return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang, annotate=annotate, can_edit=can_admin), headers=_NO_CACHE)
+                "join_code": m.join_code, "can_edit": True}
+    return HTMLResponse(_inject_web_ui(html, map_id, user.has_permission("debate"), m.reasoning is not None, is_owner=is_owner, owner_name=m.user.name or m.user.email, lang=lang, annotate=annotate, can_edit=True), headers=_NO_CACHE)
 
 
 # ── Public share ──────────────────────────────────────────────────────────────
@@ -1616,12 +1630,8 @@ def _map_annot_admin(map_id: int, user: User, db: Session) -> Map:
     m = db.query(Map).filter(Map.id == map_id).first()
     if not m:
         raise HTTPException(404, "Map not found")
-    if m.user_id != user.id:
-        if not user.has_permission("view_course_maps"):
-            raise HTTPException(403, "Forbidden")
-        course = db.query(Course).filter(Course.id == m.course_id).first()
-        if not course or not any(t.id == user.id for t in course.teachers):
-            raise HTTPException(403, "Forbidden")
+    if not _may_admin_map(m, user, db):
+        raise HTTPException(403, "Forbidden")
     return m
 
 
@@ -2600,12 +2610,8 @@ async def debate(map_id: int, body: DebateRequest, user: User = Depends(get_curr
     m = db.query(Map).filter(Map.id == map_id).first()
     if not m:
         raise HTTPException(404, "Map not found")
-    if m.user_id != user.id:
-        if not user.has_permission("view_course_maps"):
-            raise HTTPException(403, "Forbidden")
-        course = db.query(Course).filter(Course.id == m.course_id).first()
-        if not course or not any(t.id == user.id for t in course.teachers):
-            raise HTTPException(403, "Forbidden")
+    if not _may_admin_map(m, user, db):
+        raise HTTPException(403, "Forbidden")
 
     mode   = body.mode if body.mode in ("pro", "con") else "con"
     system = _DEBATE_SYSTEM[mode].format(map_text=_serialize_map(m.map_data))

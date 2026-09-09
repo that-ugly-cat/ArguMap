@@ -821,7 +821,9 @@ def _template_seed(tmpl: Template) -> dict:
     steps: list = []
     slots = tmpl.slots or {}
     support_ids = []
-    for ntype, pfx in (("empirical_premise", "E"), ("normative_premise", "N")):
+    # Normative first: this order reaches dagre as the nodes array and decides which
+    # seeded premise sits left of which on the student's canvas.
+    for ntype, pfx in (("normative_premise", "N"), ("empirical_premise", "E")):
         for i, txt in enumerate((slots.get(ntype) or {}).get("seed", []), 1):
             nid = f"{pfx}{i}"
             nodes.append({"id": nid, "type": ntype, "content": txt, "notes": ""})

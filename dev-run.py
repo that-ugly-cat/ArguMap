@@ -32,5 +32,11 @@ os.environ.setdefault("AUTH_MODE", "local")
 os.chdir(BASE)
 
 if __name__ == "__main__":
+    import sys
+
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8020)
+
+    # Porta sovrascrivibile da riga di comando: due sessioni aperte insieme su
+    # questo repo si contenderebbero altrimenti la stessa, e la seconda non parte.
+    porta = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get("ARGUMAP_DEV_PORT", "8020"))
+    uvicorn.run("main:app", host="127.0.0.1", port=porta)

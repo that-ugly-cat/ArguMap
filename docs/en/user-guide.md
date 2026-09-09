@@ -51,15 +51,15 @@ Guided mode walks you down from the thesis, one inferential step at a time.
 
 1. **State your claim** — the central thesis. (If you opened a template, the claim is already there; you may only need to fill in a highlighted blank.)
 2. **Justify it** — for the highlighted node, answer *"What does this rest on?"*. Choose the kind of support and add it:
-   - **Empirical premise** — a factual claim.
    - **Normative premise** — an ethical principle or value judgement.
+   - **Empirical premise** — a factual claim.
    - **Intermediate conclusion** — a sub-conclusion that you'll then justify in turn.
    - **Metaphysical commitment** — a deep background assumption.
    - **Objection** — a counter-consideration *against* the node (added as a free node; you connect it where it belongs in free editing).
-   Each type comes with a short explanation and an example.
+   Each type comes with a short explanation and an example. The list opens on the normative premise because most ethical arguments are built that way — a principle first, then the fact that engages it — but nothing is enforced: add supports in whatever order the argument actually has.
 3. **Co-dependency is automatic** — as soon as you add a *second* support to the same node, they are joined under a **∧ joiner** (they jointly support the target). Add more and they join the same ∧.
 4. **Intermediate conclusions** queue up: when you have one to justify, a **"Done with this node →"** button moves you to it.
-5. **Finish** — once the map holds at least one empirical *and* one normative premise, **Switch to free editing** lights up: click it to unlock the full editor (§5) and refine, reposition, or annotate.
+5. **Finish** — once the map holds at least one normative *and* one empirical premise, **Switch to free editing** lights up: click it to unlock the full editor (§5) and refine, reposition, or annotate.
 
 ---
 

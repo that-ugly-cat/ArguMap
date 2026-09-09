@@ -441,3 +441,24 @@ shows it because the gate intercepts first, but a wrong proxy matcher would
 produce a spin instead of an error, and a loop is far harder to diagnose than a
 status code. The answer is a 503 naming what the operator should check, because
 a request arriving with no identity means the gate did not run.
+
+## Normative before empirical, everywhere
+
+Every list of node types in the app puts the normative premise ahead of the
+empirical one: the add panel, the legend, the edit-node select, the help modal,
+the pipeline's system prompt and ID conventions, the text export. Since
+9 Sep 2026 the guided picker, its progress chips, the template editor's fields
+and `_template_seed` do too — they were the last four holdouts, and they were
+the ones a teacher actually sees, which is how Holger noticed.
+
+The reason is the shape of an ethical argument as it is usually built: a
+principle first, then the fact that engages it. `_template_seed`'s order is not
+cosmetic — it reaches dagre as the `nodes` array and decides which seeded
+premise sits left of which on the student's canvas.
+
+**Presentation only.** The guided mode imposes no sequence: any support type
+may be added at any point, and `_guidedUnlockReady()` is a conjunction, not a
+path. Turning the order into a *constraint* was considered and rejected — plenty
+of arguments start from the datum and let the norm qualify it, and forcing the
+other way would have meant a state machine that still has to let intermediate
+conclusions, metaphysical commitments and objections through at any moment.

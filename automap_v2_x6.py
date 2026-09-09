@@ -417,8 +417,8 @@ _HTML = """\
       padding: 8px 10px; margin-bottom: 6px; cursor: pointer; color: white; font-size: 11px; font-weight: 600; }
     .g-type-btn:hover { filter: brightness(1.12); }
     .g-type-btn.sel { box-shadow: 0 0 0 2px #1a202c; }
-    .g-type-btn[data-type="empirical_premise"]       { background: #630541; }
     .g-type-btn[data-type="normative_premise"]       { background: #a88614; }
+    .g-type-btn[data-type="empirical_premise"]       { background: #630541; }
     .g-type-btn[data-type="intermediate_conclusion"] { background: #1683ab; }
     .g-type-btn[data-type="metaphysical_commitment"] { background: #a3b51b; }
     .g-type-btn[data-type="objection"]               { background: #c0392b; }
@@ -1991,7 +1991,7 @@ function handleConnectClick(node) {
 // A scaffolded, top-down wizard: start from a claim, repeatedly ask "what does
 // this rest on?", add typed supports (live on the same graph), descend through
 // intermediate conclusions, and soft-unlock free editing once the map holds at
-// least one empirical and one normative premise. `direction` is reserved so a
+// least one normative and one empirical premise. `direction` is reserved so a
 // bottom-up variant can reuse this engine later.
 var _guided = { active: false, direction: 'top_down', phase: 'idle',
                 targetId: null, queue: [], round: [], selType: null, selOptions: [], roundJoiner: null };
@@ -2009,9 +2009,12 @@ function _guidedSlotFor(type) {
 
 // Order shown in the picker. Descriptions reuse the help-modal x6_nt_desc_* keys;
 // examples are guided-specific. `leaf:false` means the type queues for justification.
+// Normative before empirical, matching every other type list in the app and the way
+// most ethical arguments are actually built: the principle first, then the fact that
+// engages it. Presentation only — the picker imposes no order on what may be added.
 var _GUIDED_TYPES = [
-  { type: 'empirical_premise',       desc: 'x6_nt_desc_empirical',    ex: 'x6_guided_ex_empirical',    leaf: true  },
   { type: 'normative_premise',       desc: 'x6_nt_desc_normative',    ex: 'x6_guided_ex_normative',    leaf: true  },
+  { type: 'empirical_premise',       desc: 'x6_nt_desc_empirical',    ex: 'x6_guided_ex_empirical',    leaf: true  },
   { type: 'intermediate_conclusion', desc: 'x6_nt_desc_intermediate', ex: 'x6_guided_ex_intermediate', leaf: false },
   { type: 'metaphysical_commitment', desc: 'x6_nt_desc_metaphysical', ex: 'x6_guided_ex_metaphysical', leaf: true  },
   { type: 'objection',               desc: 'x6_nt_desc_objection',    ex: 'x6_guided_ex_objection',    leaf: true  },
@@ -2077,7 +2080,7 @@ function _guidedHasType(type) {
 }
 
 function _guidedUnlockReady() {
-  return _guidedHasType('empirical_premise') && _guidedHasType('normative_premise');
+  return _guidedHasType('normative_premise') && _guidedHasType('empirical_premise');
 }
 
 function _nodeContentById(id) {
@@ -2226,8 +2229,8 @@ function _guidedAdvance() {
 function _guidedChipsHtml() {
   var emp = _guidedHasType('empirical_premise'), norm = _guidedHasType('normative_premise');
   return '<div class="g-chips">' +
-    '<div class="g-chip ' + (emp ? 'on' : '') + '">' + (emp ? '✓ ' : '') + escHtml(T.x6_guided_chip_emp) + '</div>' +
     '<div class="g-chip ' + (norm ? 'on' : '') + '">' + (norm ? '✓ ' : '') + escHtml(T.x6_guided_chip_norm) + '</div>' +
+    '<div class="g-chip ' + (emp ? 'on' : '') + '">' + (emp ? '✓ ' : '') + escHtml(T.x6_guided_chip_emp) + '</div>' +
   '</div>';
 }
 

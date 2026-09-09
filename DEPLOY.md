@@ -463,21 +463,24 @@ of arguments start from the datum and let the norm qualify it, and forcing the
 other way would have meant a state machine that still has to let intermediate
 conclusions, metaphysical commitments and objections through at any moment.
 
-## The legend has two homes, and the canvas is not one of them by default
+## The legend has three homes, and the canvas is not one of them by default
 
 The legend used to be a white box floating over the bottom-left of the canvas in
-every mode. It is now docked at the bottom of the left column, where there was
-already room, and the canvas is left to the map.
+every mode. It is now docked at the bottom of whichever left column is on screen
+— `#add-panel` in free editing, `#guided-panel` in guided and template mode —
+and the canvas is left to the map.
 
-It still floats — same box, same place — in exactly the situations where that
-column is not on screen: `body.guided`, `body.annotate`, `body.left-hidden` (the
-collapse toggle sets it), and under the 820px media query. Miss any one of those
-and a whole class of users loses the only colour key they have: annotators on a
-share link never see the left column at all, and neither does anyone on a phone.
+It still floats — same box, same place — in exactly the situations where there is
+no left column at all: `body.annotate`, `body.left-hidden` (the collapse toggle
+sets it), and under the 820px media query. Miss any one of those and a whole
+class of users loses the only colour key they have: annotators on a share link
+never see a left column, and neither does anyone on a phone.
 
-Both hosts — `#legend-dock` and `#legend-float` — are filled by `renderLegend()`
-from `NODE_COLORS`/`EDGE_COLORS` and `TYPE_LABELS`, so the two copies cannot
-drift and the hex values are no longer written out a third time.
+All three hosts — `#legend-dock`, `#legend-guided` and `#legend-float` — are
+filled by `renderLegend()` from `NODE_COLORS`/`EDGE_COLORS` and `TYPE_LABELS`,
+so the copies cannot drift and the hex values are no longer written out a third
+time. `#legend-guided` is a sibling of `#guided-body`, not a child, so the
+wizard's own re-renders leave it alone.
 
 ## Seeded template premises: connected or loose
 

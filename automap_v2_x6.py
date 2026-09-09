@@ -575,20 +575,22 @@ _HTML = """\
     .ref-subfam-body.open { display: block; }
 
     /* --- Legend ---
-       One legend, two homes. Docked in the left column while there is one — the
-       canvas is what people came to look at — and floating over the canvas only
-       in the modes that hide that column: guided, annotate, collapsed panel, and
-       narrow screens. Both hosts are filled from the same builder. */
+       One legend, three homes. Docked at the bottom of whichever left column is
+       on screen — the add panel in free editing, the guided panel in guided and
+       template mode — because the canvas is what people came to look at. It
+       floats over the canvas only where there is no left column at all:
+       annotation, a hand-collapsed panel, and narrow screens. All three hosts
+       are filled from the same builder. */
     .legend { font-size: 10px; color: #4a5568; }
     .legend h4 { font-size: 10px; font-weight: 700; margin-bottom: 5px; color: #718096; }
     #legend-dock { margin-top: 4px; }
+    #legend-guided { margin-top: 20px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
     #legend-float {
       position: absolute; bottom: 12px; left: 12px; z-index: 10; display: none;
       background: white; padding: 10px 12px; border-radius: 7px;
       box-shadow: 0 2px 8px rgba(0,0,0,.12);
       pointer-events: none;
     }
-    body.guided #legend-float,
     body.annotate #legend-float,
     body.left-hidden #legend-float { display: block; }
     .l-row { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
@@ -748,6 +750,7 @@ _HTML = """\
   <h2 data-i18n="x6_guided_title">Guided construction</h2>
   <div class="g-sub" data-i18n="x6_guided_subtitle">Build your argument one inferential step at a time.</div>
   <div id="guided-body"></div>
+  <div id="legend-guided" class="legend"></div>
 </div>
 
 <div id="graph-container">
@@ -956,9 +959,10 @@ function applyTranslations() {
 }
 applyTranslations();
 
-// Build the legend once and put the same markup in both hosts — the docked one in
-// the left column and the floating one over the canvas — so the two cannot drift.
-// Colours come from NODE_COLORS/EDGE_COLORS rather than being written out again.
+// Build the legend once and put the same markup in all three hosts — docked in the
+// add panel, docked in the guided panel, floating over the canvas — so the copies
+// cannot drift. Colours come from NODE_COLORS/EDGE_COLORS rather than being
+// written out again.
 function renderLegend() {
   var order = ['claim', 'normative_premise', 'empirical_premise', 'metaphysical_commitment',
                'intermediate_conclusion', 'objection', 'linked_joiner'];
@@ -978,7 +982,7 @@ function renderLegend() {
        '<span>' + escHtml(T.x6_invalid_style) + '</span></div>' +
        '<div class="l-row" style="margin-top:3px;color:#a0aec0">' + escHtml(T.x6_thickness) + '</div>' +
        '<hr class="l-sep"><div style="color:#a0aec0">' + escHtml(T.x6_pan_zoom) + '</div>';
-  ['legend-dock', 'legend-float'].forEach(function(id) {
+  ['legend-dock', 'legend-guided', 'legend-float'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.innerHTML = h;
   });

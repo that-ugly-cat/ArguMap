@@ -85,7 +85,7 @@ Guided mode walks you down from the thesis, one inferential step at a time.
 
 ### Panels
 - **Left panel** — add nodes by type; set the edge router style (Metro / Normal / ER); read the colour legend at the bottom.
-  The legend moves onto the canvas, bottom left, whenever that column is not there — guided mode, annotation, a collapsed panel, or a narrow screen.
+  The guided panel carries the same legend at its foot. It moves onto the canvas, bottom left, only where there is no left column at all — annotation, a collapsed panel, or a narrow screen.
 - **Right panel** — edit the selected node or edge (content, notes, relation, validity, fallacy, bias, inferential rule, strength) and browse a searchable **reference catalog** of inferential rules, fallacies, and biases.
 - Collapse either panel with the **◄ / ►** tab on its inner edge.
 

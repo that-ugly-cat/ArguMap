@@ -49,7 +49,8 @@ A template is a scaffold you author once and hand to a whole class. Open **Templ
 
 ### Create a template
 - **Claim** — the thesis. You can leave a blank in square brackets, e.g. *"`[criterion]` should be the primary criterion for triage"*; the student fills only that blank.
-- **Normative / Empirical / Objection premises** — one entry per line. A plain line becomes a **preset option** the student picks from in guided mode; a line starting with **`*`** is **pre-seeded onto the student's map** — seeded premises land under a ∧ joiner supporting the claim, seeded objections are added as free nodes.
+- **Normative / Empirical / Objection premises** — one entry per line. A plain line becomes a **preset option** the student picks from in guided mode; a line starting with **`*`** is **pre-seeded onto the student's map**.
+- **Seeded premises arrive connected to the claim** — a checkbox, on by default. On, the `*` premises land already supporting the claim, under a ∧ joiner when there are several. Off, they land as loose nodes and *drawing the inferential links is the exercise*. Seeded objections are unconnected either way: their real target is ambiguous, so the student wires them by hand.
 - **Course** — bind the template to a course (optional).
 
 Click **Create**. You get a shareable link (`.../t/<id>`).

@@ -85,6 +85,11 @@
     <textarea id="f-emp-opts" rows="2"></textarea>
     <label>{{ t.tmpl_opt_obj }}</label>
     <textarea id="f-obj-opts" rows="2"></textarea>
+    <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+      <input type="checkbox" id="f-seed-connected" checked style="width:auto;margin:0">
+      {{ t.tmpl_seed_connected }}
+    </label>
+    <div class="hint">{{ t.tmpl_seed_connected_hint }}</div>
     <label>{{ t.tmpl_course_label }}</label>
     <select id="f-course"><option value="">{{ t.tmpl_course_none }}</option></select>
     <button class="btn-primary" id="save-btn" onclick="saveTemplate()">{{ t.tmpl_create }}</button>
@@ -177,6 +182,7 @@ function editTemplate(id) {
   document.getElementById('f-norm-opts').value = slotText(t.slots, 'normative_premise');
   document.getElementById('f-emp-opts').value = slotText(t.slots, 'empirical_premise');
   document.getElementById('f-obj-opts').value = slotText(t.slots, 'objection');
+  document.getElementById('f-seed-connected').checked = t.seed_connected !== false;
   document.getElementById('f-course').value   = t.course_id || '';
   document.getElementById('save-btn').textContent = T.tmpl_update;
   document.getElementById('cancel-btn').style.display = '';
@@ -188,6 +194,7 @@ function cancelEdit() {
   ['f-title','f-claim','f-norm-opts','f-emp-opts','f-obj-opts','f-course'].forEach(function(id){
     document.getElementById(id).value = '';
   });
+  document.getElementById('f-seed-connected').checked = true;
   document.getElementById('save-btn').textContent = T.tmpl_create;
   document.getElementById('cancel-btn').style.display = 'none';
 }
@@ -208,6 +215,7 @@ async function saveTemplate() {
     method: editingId ? 'PATCH' : 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({title: title, claim: claim,
                           course_id: course ? parseInt(course) : null,
+                          seed_connected: document.getElementById('f-seed-connected').checked,
                           slots: Object.keys(slots).length ? slots : null})
   });
   if (r.ok) { cancelEdit(); loadTemplates(); }

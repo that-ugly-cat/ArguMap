@@ -693,6 +693,7 @@ class TemplateCreate(BaseModel):
     claim:     str
     course_id: int | None = None
     slots:     dict | None = None
+    seed_connected: bool = True
 
 
 def _require_teacher(user: User):
@@ -706,7 +707,8 @@ def list_templates(user: User = Depends(get_current_user), db: Session = Depends
     _require_teacher(user)
     q = db.query(Template).filter(Template.teacher_id == user.id).order_by(Template.created_at.desc())
     return [{"id": t.id, "title": t.title, "claim": t.claim, "course_id": t.course_id,
-             "slots": t.slots, "created_at": t.created_at} for t in q.all()]
+             "slots": t.slots, "seed_connected": t.seed_connected is not False,
+             "created_at": t.created_at} for t in q.all()]
 
 
 @app.post("/api/templates")
@@ -715,7 +717,8 @@ def create_template(body: TemplateCreate, user: User = Depends(get_current_user)
     if not body.title.strip() or not body.claim.strip():
         raise HTTPException(400, "Title and claim are required")
     t = Template(teacher_id=user.id, title=body.title.strip(), claim=body.claim.strip(),
-                 course_id=body.course_id, slots=body.slots)
+                 course_id=body.course_id, slots=body.slots,
+                 seed_connected=body.seed_connected)
     db.add(t)
     db.commit()
     db.refresh(t)
@@ -736,6 +739,7 @@ def update_template(template_id: int, body: TemplateCreate, user: User = Depends
     t.claim     = body.claim.strip()
     t.course_id = body.course_id
     t.slots     = body.slots
+    t.seed_connected = body.seed_connected
     db.commit()
     return {"id": t.id}
 
@@ -781,7 +785,8 @@ def push_template(template_id: int, body: TemplatePush, user: User = Depends(get
     recip = db.query(User).filter(User.id == body.user_id).first()
     if not recip or not _is_teacher_or_admin(recip):
         raise HTTPException(400, "Recipient must be a teacher or admin")
-    copy = Template(teacher_id=recip.id, title=t.title, claim=t.claim, slots=t.slots, course_id=None)
+    copy = Template(teacher_id=recip.id, title=t.title, claim=t.claim, slots=t.slots,
+                    seed_connected=t.seed_connected is not False, course_id=None)
     db.add(copy)
     db.commit()
     return {"ok": True}
@@ -816,7 +821,13 @@ def open_template(template_id: int, request: Request, session: str | None = Cook
 
 def _template_seed(tmpl: Template) -> dict:
     """Build the initial map_data for a template: claim + `*`-seeded premises
-    (co-dependent under a ∧ joiner) + `*`-seeded objections (attacking the claim)."""
+    + `*`-seeded objections.
+
+    `seed_connected` (default True) decides whether the premises arrive already
+    supporting the claim — co-dependent under a ∧ joiner when there are several —
+    or as loose nodes, leaving the inferential links as the exercise. Objections
+    are unconnected either way: their real target is ambiguous, so the student or
+    the teacher wires them by hand in edit mode."""
     nodes = [{"id": "C1", "type": "claim", "content": tmpl.claim, "notes": ""}]
     steps: list = []
     slots = tmpl.slots or {}
@@ -828,11 +839,11 @@ def _template_seed(tmpl: Template) -> dict:
             nid = f"{pfx}{i}"
             nodes.append({"id": nid, "type": ntype, "content": txt, "notes": ""})
             support_ids.append(nid)
-    if support_ids:
+    # `is not False` and not a plain truth test: rows written before the column
+    # existed read back as NULL, and those templates were seeded connected.
+    if support_ids and tmpl.seed_connected is not False:
         steps.append({"id": f"S{len(steps) + 1}", "sources": support_ids, "target": "C1",
                       "linked": len(support_ids) > 1, "relation": "supports"})
-    # Objections are seeded unconnected — their real target is ambiguous, so the
-    # student/teacher wires them by hand in edit mode.
     for i, txt in enumerate((slots.get("objection") or {}).get("seed", []), 1):
         nodes.append({"id": f"O{i}", "type": "objection", "content": txt, "notes": ""})
     return {"title": tmpl.title, "nodes": nodes, "steps": steps}

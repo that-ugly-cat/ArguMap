@@ -574,14 +574,23 @@ _HTML = """\
     .ref-subfam-body { display: none; }
     .ref-subfam-body.open { display: block; }
 
-    /* --- Legend --- */
-    #legend {
-      position: absolute; bottom: 12px; left: 12px; z-index: 10;
+    /* --- Legend ---
+       One legend, two homes. Docked in the left column while there is one — the
+       canvas is what people came to look at — and floating over the canvas only
+       in the modes that hide that column: guided, annotate, collapsed panel, and
+       narrow screens. Both hosts are filled from the same builder. */
+    .legend { font-size: 10px; color: #4a5568; }
+    .legend h4 { font-size: 10px; font-weight: 700; margin-bottom: 5px; color: #718096; }
+    #legend-dock { margin-top: 4px; }
+    #legend-float {
+      position: absolute; bottom: 12px; left: 12px; z-index: 10; display: none;
       background: white; padding: 10px 12px; border-radius: 7px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.12); font-size: 10px; color: #4a5568;
+      box-shadow: 0 2px 8px rgba(0,0,0,.12);
       pointer-events: none;
     }
-    #legend h4 { font-size: 10px; font-weight: 700; margin-bottom: 5px; color: #718096; }
+    body.guided #legend-float,
+    body.annotate #legend-float,
+    body.left-hidden #legend-float { display: block; }
     .l-row { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
     .l-dot  { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
     .l-line { width: 18px; height: 2px; flex-shrink: 0; border-radius: 1px; }
@@ -679,7 +688,9 @@ _HTML = """\
       #toolbar { gap: 6px; padding: 0 8px; }
       /* View-only on mobile: title is not editable (no keyboard on tap). */
       #map-title { font-size: 14px; pointer-events: none; }
-      #legend { transform: scale(.82); transform-origin: bottom left; opacity: .9; }
+      /* The left column is gone here, so the floating copy is the only key left. */
+      #legend-float { display: block !important; transform: scale(.82);
+                      transform-origin: bottom left; opacity: .9; }
       #btn-fit { display: inline-flex !important; }
     }
   </style>
@@ -728,6 +739,8 @@ _HTML = """\
     <option value="normal">Normal</option>
     <option value="er">ER</option>
   </select>
+  <hr class="add-sep">
+  <div id="legend-dock" class="legend"></div>
 </div>
 <div id="left-panel-toggle" class="panel-toggle" onclick="toggleLeftPanel()" title="Toggle left panel">&#x25C4;</div>
 
@@ -738,25 +751,7 @@ _HTML = """\
 </div>
 
 <div id="graph-container">
-  <div id="legend">
-    <h4 data-i18n="x6_nodes">Nodes</h4>
-    <div class="l-row"><div class="l-dot" style="background:#0a3c8a"></div><span data-i18n="nt_claim">Claim (thesis)</span></div>
-    <div class="l-row"><div class="l-dot" style="background:#a88614"></div><span data-i18n="nt_normative">Normative premise</span></div>
-    <div class="l-row"><div class="l-dot" style="background:#630541"></div><span data-i18n="nt_empirical">Empirical premise</span></div>
-    <div class="l-row"><div class="l-dot" style="background:#a3b51b"></div><span data-i18n="nt_metaphysical">Metaphysical commitment</span></div>
-    <div class="l-row"><div class="l-dot" style="background:#1683ab"></div><span data-i18n="nt_intermediate">Intermediate conclusion</span></div>
-    <div class="l-row"><div class="l-dot" style="background:#c0392b"></div><span data-i18n="nt_objection">Objection</span></div>
-    <div class="l-row"><div class="l-dot" style="background:#4a5568;border-radius:50%"></div><span data-i18n="nt_joiner">Co-premise joiner (∧)</span></div>
-    <hr class="l-sep">
-    <h4 data-i18n="x6_edges">Edges</h4>
-    <div class="l-row"><div class="l-line" style="background:#27ae60"></div><span data-i18n="x6_supports">Supports</span></div>
-    <div class="l-row"><div class="l-line" style="background:#e74c3c"></div><span data-i18n="x6_attacks">Attacks</span></div>
-    <div class="l-row"><div class="l-line" style="background:#718096"></div><span data-i18n="x6_qualifies">Qualifies</span></div>
-    <div class="l-row"><div style="width:18px;border-top:2px dashed #a0aec0;flex-shrink:0"></div><span data-i18n="x6_invalid_style">Invalid</span></div>
-    <div class="l-row" style="margin-top:3px;color:#a0aec0" data-i18n="x6_thickness">Thickness = strength</div>
-    <hr class="l-sep">
-    <div style="color:#a0aec0" data-i18n="x6_pan_zoom">Drag canvas to pan · Scroll to zoom</div>
-  </div>
+  <div id="legend-float" class="legend"></div>
 </div>
 
 <div id="right-panel-toggle" class="panel-toggle" onclick="toggleRightPanel()" title="Toggle right panel">&#x25BA;</div>
@@ -960,6 +955,35 @@ function applyTranslations() {
   });
 }
 applyTranslations();
+
+// Build the legend once and put the same markup in both hosts — the docked one in
+// the left column and the floating one over the canvas — so the two cannot drift.
+// Colours come from NODE_COLORS/EDGE_COLORS rather than being written out again.
+function renderLegend() {
+  var order = ['claim', 'normative_premise', 'empirical_premise', 'metaphysical_commitment',
+               'intermediate_conclusion', 'objection', 'linked_joiner'];
+  var h = '<h4>' + escHtml(T.x6_nodes) + '</h4>';
+  order.forEach(function(type) {
+    var round = type === 'linked_joiner' ? ';border-radius:50%' : '';
+    h += '<div class="l-row"><div class="l-dot" style="background:' + NODE_COLORS[type] + round +
+         '"></div><span>' + escHtml(TYPE_LABELS[type]) + '</span></div>';
+  });
+  h += '<hr class="l-sep"><h4>' + escHtml(T.x6_edges) + '</h4>';
+  [['supports', T.x6_supports], ['attacks', T.x6_attacks], ['qualifies', T.x6_qualifies]]
+    .forEach(function(e) {
+      h += '<div class="l-row"><div class="l-line" style="background:' + EDGE_COLORS[e[0]] +
+           '"></div><span>' + escHtml(e[1]) + '</span></div>';
+    });
+  h += '<div class="l-row"><div style="width:18px;border-top:2px dashed #a0aec0;flex-shrink:0"></div>' +
+       '<span>' + escHtml(T.x6_invalid_style) + '</span></div>' +
+       '<div class="l-row" style="margin-top:3px;color:#a0aec0">' + escHtml(T.x6_thickness) + '</div>' +
+       '<hr class="l-sep"><div style="color:#a0aec0">' + escHtml(T.x6_pan_zoom) + '</div>';
+  ['legend-dock', 'legend-float'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = h;
+  });
+}
+renderLegend();
 
 // --- History (undo / redo) ---
 function _captureState() {
@@ -2681,6 +2705,8 @@ function _syncGraphBounds() {
 function toggleLeftPanel() {
   _leftVisible = !_leftVisible;
   document.getElementById('add-panel').style.display = _leftVisible ? '' : 'none';
+  // The legend lives in that column; collapsing it hands the floating copy over.
+  document.body.classList.toggle('left-hidden', !_leftVisible);
   const tab = document.getElementById('left-panel-toggle');
   tab.innerHTML = _leftVisible ? '&#x25C4;' : '&#x25BA;';
   tab.style.left = _leftVisible ? _LEFT_W + 'px' : '0';

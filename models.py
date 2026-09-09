@@ -164,6 +164,13 @@ class Template(Base):
     guided mode. `claim` may contain a single [PLACEHOLDER] the student fills in.
     `slots` (optional) holds preset option-lists for premise choice-slots (#5),
     e.g. {"empirical": {"options": [...], "correct": 1}}.
+
+    `seed_connected` decides what the `*` premises arrive as. True (the default,
+    and what every template did before the flag existed): they land already
+    supporting the claim, under a ∧ joiner when there are several. False: they
+    land as loose nodes and drawing the inferential links is the exercise.
+    Seeded objections are unconnected either way — their target is ambiguous by
+    nature, so guessing it would be wrong more often than not.
     """
     __tablename__ = "templates"
     id         = Column(Integer, primary_key=True)
@@ -172,6 +179,7 @@ class Template(Base):
     title      = Column(String, nullable=False)
     claim      = Column(Text, nullable=False)
     slots      = Column(JSON, nullable=True)
+    seed_connected = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     teacher = relationship("User")
@@ -346,6 +354,10 @@ def init_db():
             "ALTER TABLE users ADD COLUMN borant_sub VARCHAR",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_borant_sub "
             "ON users(borant_sub) WHERE borant_sub IS NOT NULL",
+            # 2026-09-09. DEFAULT 1 is what makes this additive: every template
+            # written before the flag existed was seeded connected, so the old
+            # rows have to keep saying so.
+            "ALTER TABLE templates ADD COLUMN seed_connected BOOLEAN DEFAULT 1",
         ]:
             try:
                 conn.execute(text(stmt))

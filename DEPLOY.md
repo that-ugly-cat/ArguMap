@@ -462,3 +462,40 @@ path. Turning the order into a *constraint* was considered and rejected — plen
 of arguments start from the datum and let the norm qualify it, and forcing the
 other way would have meant a state machine that still has to let intermediate
 conclusions, metaphysical commitments and objections through at any moment.
+
+## The legend has two homes, and the canvas is not one of them by default
+
+The legend used to be a white box floating over the bottom-left of the canvas in
+every mode. It is now docked at the bottom of the left column, where there was
+already room, and the canvas is left to the map.
+
+It still floats — same box, same place — in exactly the situations where that
+column is not on screen: `body.guided`, `body.annotate`, `body.left-hidden` (the
+collapse toggle sets it), and under the 820px media query. Miss any one of those
+and a whole class of users loses the only colour key they have: annotators on a
+share link never see the left column at all, and neither does anyone on a phone.
+
+Both hosts — `#legend-dock` and `#legend-float` — are filled by `renderLegend()`
+from `NODE_COLORS`/`EDGE_COLORS` and `TYPE_LABELS`, so the two copies cannot
+drift and the hex values are no longer written out a third time.
+
+## Seeded template premises: connected or loose
+
+`templates.seed_connected` (BOOLEAN DEFAULT 1, additive migration) decides what a
+`*` premise arrives as on the student's map. On — the default, and what every
+template did before the column existed — they land already supporting the claim,
+under a ∧ joiner when there are several. Off, they land as loose nodes and
+drawing the inferential links is the exercise.
+
+Two things not to get wrong when touching this:
+
+- **Test it with `is not False`, never for truthiness.** Rows written before the
+  migration read back as NULL, and those templates were seeded connected. A plain
+  `if tmpl.seed_connected:` would silently unwire every template authored before
+  9 Sep 2026. The client does the same with `!== false`.
+- **Seeded objections stay unconnected in both modes.** That is not an oversight
+  the flag forgot to cover: an objection's real target is ambiguous — the claim,
+  a premise, an inference — so it is wired by hand, as it always was.
+
+`push_template` carries the flag to the copy; `_map_is_pristine` is unaffected,
+since a seeded map already had more than one node either way.

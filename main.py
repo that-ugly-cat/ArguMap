@@ -1367,7 +1367,9 @@ def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasonin
   // For new maps: fetch courses and offer the choice in the toolbar. Shown from
   // one course up — it used to appear only with two or more, and with exactly
   // one the map was filed into it silently.
-  if (!MAP_ID) {{
+  // Only where the map can actually be saved: /share and /annotate also pass a
+  // null map_id, and there the picker fed a Save button that is hidden.
+  if (!MAP_ID && (IS_OWNER || CAN_EDIT)) {{
     fetch('/api/courses').then(r => r.json()).then(courses => {{
       if (courses.length > 0) {{
         const label = document.createElement('label');
@@ -1375,7 +1377,11 @@ def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasonin
         label.style.cssText = 'font-size:.75rem;color:#a0aec0;white-space:nowrap;align-self:center;margin-right:2px';
         const sel = document.createElement('select');
         sel.id = '_course-sel';
-        sel.style.cssText = 'padding:.25rem .45rem;background:#0f1117;border:1px solid #2d3148;border-radius:4px;color:#e2e8f0;font-size:.78rem;outline:none';
+        // max-width, because a select takes its intrinsic width from the longest
+        // option: one long course name and the toolbar loses its right half.
+        sel.style.cssText = 'padding:.25rem .45rem;background:#0f1117;border:1px solid #2d3148;' +
+                            'border-radius:4px;color:#e2e8f0;font-size:.78rem;outline:none;' +
+                            'max-width:180px;text-overflow:ellipsis';
         const none = document.createElement('option');
         none.value = '';
         none.textContent = UI_T.app_no_course;
@@ -1386,6 +1392,9 @@ def _inject_web_ui(html: str, map_id: int | None, can_debate: bool, has_reasonin
           o.textContent = c.name;
           sel.appendChild(o);
         }});
+        // Clipped names stay readable on hover.
+        sel.title = sel.options[sel.selectedIndex].textContent;
+        sel.onchange = () => {{ sel.title = sel.options[sel.selectedIndex].textContent; }};
         toolbar.insertBefore(label, saveBtn);
         toolbar.insertBefore(sel, saveBtn);
       }}

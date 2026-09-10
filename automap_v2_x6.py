@@ -90,7 +90,7 @@ _X6_TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_new_node_prefix': 'New',
         'nt_claim': 'Claim (thesis)', 'nt_normative': 'Normative premise',
         'nt_empirical': 'Empirical premise', 'nt_metaphysical': 'Metaphysical commitment',
-        'nt_intermediate': 'Intermediate conclusion', 'nt_joiner': 'Co-premise joiner (∧)',
+        'nt_intermediate': 'Intermediate conclusion', 'nt_joiner': 'Premise joiner (∧)',
         # help modal — node type descriptions
         'x6_nt_desc_claim':        'Central thesis. Exactly one per map; all other nodes support, attack, or qualify it.',
         'x6_nt_desc_normative':    'An ethical or normative claim: a principle, right, duty, or value judgment.',
@@ -118,7 +118,7 @@ _X6_TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_sc_add_empirical':  'Add Empirical premise',
         'x6_sc_add_metaphysical':'Add Metaphysical commitment',
         'x6_sc_add_intermediate':'Add Intermediate conclusion',
-        'x6_sc_add_joiner':     'Add Co-premise joiner (∧)',
+        'x6_sc_add_joiner':     'Add Premise joiner (∧)',
         'x6_sc_canvas_mode':    'Canvas & mode',
         'x6_sc_toggle_connect': 'Toggle Connect mode',
         'x6_sc_exit_connect':   'Exit Connect mode / deselect',
@@ -161,7 +161,7 @@ _X6_TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_new_node_prefix': 'Nuovo',
         'nt_claim': 'Claim (tesi)', 'nt_normative': 'Premessa normativa',
         'nt_empirical': 'Premessa empirica', 'nt_metaphysical': 'Impegno metafisico',
-        'nt_intermediate': 'Conclusione intermedia', 'nt_joiner': 'Connettore co-premesse (∧)',
+        'nt_intermediate': 'Conclusione intermedia', 'nt_joiner': 'Connettore di premesse (∧)',
         # help modal — descrizioni tipi di nodo
         'x6_nt_desc_claim':        'Tesi centrale. Esattamente una per mappa; tutti gli altri nodi la sostengono, attaccano o qualificano.',
         'x6_nt_desc_normative':    "Un'affermazione etica o normativa: un principio, un diritto, un dovere o un giudizio di valore.",
@@ -189,7 +189,7 @@ _X6_TRANSLATIONS: dict[str, dict[str, str]] = {
         'x6_sc_add_empirical':  'Aggiungi Premessa empirica',
         'x6_sc_add_metaphysical':'Aggiungi Impegno metafisico',
         'x6_sc_add_intermediate':'Aggiungi Conclusione intermedia',
-        'x6_sc_add_joiner':     'Aggiungi Connettore di co-premesse (∧)',
+        'x6_sc_add_joiner':     'Aggiungi Connettore di premesse (∧)',
         'x6_sc_canvas_mode':    'Canvas e modalità',
         'x6_sc_toggle_connect': 'Attiva/disattiva modalità Connetti',
         'x6_sc_exit_connect':   'Esci dalla modalità Connetti / deseleziona',
@@ -754,7 +754,7 @@ _HTML = """\
   <button class="type-btn" data-type="empirical_premise"       onclick="addNode('empirical_premise')" data-i18n="nt_empirical">Empirical premise</button>
   <button class="type-btn" data-type="intermediate_conclusion" onclick="addNode('intermediate_conclusion')" data-i18n="nt_intermediate">Intermediate conclusion</button>
   <button class="type-btn" data-type="objection"               onclick="addNode('objection')" data-i18n="nt_objection">Objection</button>
-  <button class="type-btn" data-type="linked_joiner"           onclick="addNode('linked_joiner')" data-i18n="nt_joiner">Co-premise joiner (∧)</button>
+  <button class="type-btn" data-type="linked_joiner"           onclick="addNode('linked_joiner')" data-i18n="nt_joiner">Premise joiner (∧)</button>
   <hr class="add-sep">
   <h3 data-i18n="x6_edge_routing">Edge routing</h3>
   <select class="tb-select" style="width:100%;margin-top:4px" title="Edge routing" onchange="setRouter(this.value)">
@@ -793,7 +793,7 @@ _HTML = """\
       <option value="metaphysical_commitment" data-i18n="nt_metaphysical">Metaphysical commitment</option>
       <option value="intermediate_conclusion" data-i18n="nt_intermediate">Intermediate conclusion</option>
       <option value="objection" data-i18n="nt_objection">Objection</option>
-      <option value="linked_joiner" data-i18n="nt_joiner">Co-premise joiner (∧)</option>
+      <option value="linked_joiner" data-i18n="nt_joiner">Premise joiner (∧)</option>
     </select>
     <label class="field-label" data-i18n="x6_content">Content</label>
     <textarea id="edit-content" rows="6"></textarea>
@@ -868,7 +868,7 @@ _HTML = """\
     <div class="h-row"><div class="h-dot" style="background:#630541"></div><div><span class="h-key" data-i18n="nt_empirical">Empirical premise</span> <kbd>E</kbd> &mdash; <span data-i18n="x6_nt_desc_empirical">A factual or empirical claim supported by evidence or data.</span></div></div>
     <div class="h-row"><div class="h-dot" style="background:#1683ab"></div><div><span class="h-key" data-i18n="nt_intermediate">Intermediate conclusion</span> <kbd>I</kbd> &mdash; <span data-i18n="x6_nt_desc_intermediate">A sub-conclusion within the inferential chain, derived from premises and feeding into the claim.</span></div></div>
     <div class="h-row"><div class="h-dot" style="background:#c0392b"></div><div><span class="h-key" data-i18n="nt_objection">Objection</span> <kbd>O</kbd> &mdash; <span data-i18n="x6_nt_desc_objection">A counter-consideration raised against the claim, a premise, or an inference. Connects to what it challenges via &ldquo;attacks&rdquo;.</span></div></div>
-    <div class="h-row"><div class="h-dot" style="background:#4a5568;border-radius:50%"></div><div><span class="h-key" data-i18n="nt_joiner">Co-premise joiner (&#x2227;)</span> <kbd>J</kbd> &mdash; <span data-i18n="x6_nt_desc_joiner">Links premises that are co-dependent: all connected premises are jointly required for the inference (linked argument, not convergent).</span></div></div>
+    <div class="h-row"><div class="h-dot" style="background:#4a5568;border-radius:50%"></div><div><span class="h-key" data-i18n="nt_joiner">Premise joiner (&#x2227;)</span> <kbd>J</kbd> &mdash; <span data-i18n="x6_nt_desc_joiner">Links premises that are co-dependent: all connected premises are jointly required for the inference (linked argument, not convergent).</span></div></div>
 
     <h3 data-i18n="x6_edge_props_h">Edge properties</h3>
     <table>
@@ -889,7 +889,7 @@ _HTML = """\
       <tr><td><strong>E</strong></td><td data-i18n="x6_sc_add_empirical">Add Empirical premise</td></tr>
       <tr><td><strong>M</strong></td><td data-i18n="x6_sc_add_metaphysical">Add Metaphysical commitment</td></tr>
       <tr><td><strong>I</strong></td><td data-i18n="x6_sc_add_intermediate">Add Intermediate conclusion</td></tr>
-      <tr><td><strong>J</strong></td><td data-i18n="x6_sc_add_joiner">Add Co-premise joiner (&#x2227;)</td></tr>
+      <tr><td><strong>J</strong></td><td data-i18n="x6_sc_add_joiner">Add Premise joiner (&#x2227;)</td></tr>
       <tr><th colspan="2" data-i18n="x6_sc_canvas_mode">Canvas &amp; mode</th></tr>
       <tr><td><strong>C</strong></td><td data-i18n="x6_sc_toggle_connect">Toggle Connect mode</td></tr>
       <tr><td><strong>Escape</strong></td><td data-i18n="x6_sc_exit_connect">Exit Connect mode / deselect</td></tr>

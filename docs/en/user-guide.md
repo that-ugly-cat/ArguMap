@@ -105,7 +105,7 @@ Guided mode walks you down from the thesis, one inferential step at a time.
 | Metaphysical commitment | Olive | Background philosophical assumption | `m` |
 | Intermediate conclusion | Mid blue | A sub-conclusion in the chain | `i` |
 | **Objection** | **Red** | A counter-consideration; connects via `attacks` | `o` |
-| Co-premise joiner (∧) | Grey | Marks premises as jointly required | `j` |
+| Premise joiner (∧) | Grey | Marks premises as jointly required | `j` |
 
 ### Edges
 - **Relation**: `supports`, `attacks`, or `qualifies`.

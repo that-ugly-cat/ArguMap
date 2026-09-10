@@ -247,6 +247,14 @@ def to_x6_data(argmap: Union[ArgumentMapV2, dict]) -> dict:
             "height":  _height(label),
         })
 
+    # An edge is drawn only when both of its ends resolve to a node that exists.
+    # Three ways a step can fail that, all of them arrows going nowhere: target
+    # null (a linked step whose conclusion was never chosen — that is what
+    # _captureState saves), target empty or absent, or an id left over from a
+    # deleted node. X6 draws the first as an arrow to the canvas origin and the
+    # others not at all; neither belongs on the map.
+    node_ids = {n["id"] for n in nodes}
+
     for step in argmap["steps"]:
         ann = step.get("annotation") or {}
         edge_base = {
@@ -262,12 +270,19 @@ def to_x6_data(argmap: Union[ArgumentMapV2, dict]) -> dict:
             "strength":       step.get("strength", 0.5),
         }
 
+        # Ends that resolve to a node, with their index in the step kept as it
+        # is: edge ids are what annotations hang from (Annotation.target_id), so
+        # skipping a dangling source must not renumber the ones next to it.
+        target  = step["target"] if step.get("target") in node_ids else None
+        sources = [(i, s) for i, s in enumerate(step["sources"]) if s in node_ids]
+
         # Linked steps (co-premise / ∧ joiner): expand into a virtual joiner node
         # with N incoming edges (one per source) and one outgoing edge to the target.
         # Only expand in to_x6_data when sources > 1; partial joiners (0-1 sources)
         # are handled exclusively in the JS _loadState to avoid rendering dangling nodes.
         if step.get("linked") and len(step["sources"]) > 1:
             joiner_id = f"joiner_{step['id']}"
+            node_ids.add(joiner_id)
             nodes.append({
                 "id":      joiner_id,
                 "type":    "linked_joiner",
@@ -276,17 +291,23 @@ def to_x6_data(argmap: Union[ArgumentMapV2, dict]) -> dict:
                 "width":   _JOINER_SIZE,
                 "height":  _JOINER_SIZE,
             })
-            for i, src in enumerate(step["sources"]):
+            # The joiner keeps its original arity: a co-premise step with one
+            # dangling source is drawn with the premises that survive, not
+            # silently downgraded to a plain single-premise inference.
+            for i, src in sources:
                 edges.append({"id": f"{step['id']}_in_{i}", "source": src,
                                "target": joiner_id, **edge_base,
                                "rule": "", "bias_label": "", "fallacy_label": "",
                                "bias_reason": "", "fallacy_reason": ""})
-            edges.append({"id": f"{step['id']}_out", "source": joiner_id,
-                           "target": step["target"], **edge_base})
+            if target:
+                edges.append({"id": f"{step['id']}_out", "source": joiner_id,
+                               "target": target, **edge_base})
         else:
-            for i, src in enumerate(step["sources"]):
+            if not target:
+                continue
+            for i, src in sources:
                 edges.append({"id": f"{step['id']}_{i}", "source": src,
-                               "target": step["target"], **edge_base})
+                               "target": target, **edge_base})
 
     return {"nodes": nodes, "edges": edges}
 
@@ -2607,6 +2628,10 @@ function rebuildFromMap(map) {
     });
   }
 
+  // Same rule as to_x6_data(): an edge is drawn only when both ends resolve to
+  // a node that exists. Joiner ids join the set as they are created below.
+  const nodeIds = new Set(nodesData.map(function(n) { return n.id; }));
+
   for (const step of (map.steps || [])) {
     const ann = step.annotation || {};
     const validity = ann.valid === true ? 'valid' : ann.valid === false ? 'invalid' : 'unknown';
@@ -2618,25 +2643,30 @@ function rebuildFromMap(map) {
       fallacy_label: ann.fallacy_label || '', fallacy_reason: ann.fallacy_reason || '',
       strength: step.strength || 0.5,
     };
+    // Indices stay as they are in the step: annotations hang from edge ids.
+    const target = nodeIds.has(step.target) ? step.target : null;
     if (step.linked) {
       const joinerId = 'joiner_' + step.id;
+      nodeIds.add(joinerId);
       nodesData.push({ id: joinerId, type: 'linked_joiner',
                        content: 'Both premises required', notes: '',
                        width: _JOINER_SIZE, height: _JOINER_SIZE });
       (step.sources || []).forEach(function(src, i) {
+        if (!nodeIds.has(src)) return;
         edgesData.push(Object.assign({}, base, { id: step.id + '_in_' + i,
                         source: src, target: joinerId,
                         rule: '', bias_label: '', fallacy_label: '',
                         bias_reason: '', fallacy_reason: '' }));
       });
-      if (step.target) {
+      if (target) {
         edgesData.push(Object.assign({}, base, { id: step.id + '_out',
-                        source: joinerId, target: step.target }));
+                        source: joinerId, target: target }));
       }
-    } else {
+    } else if (target) {
       (step.sources || []).forEach(function(src, i) {
+        if (!nodeIds.has(src)) return;
         edgesData.push(Object.assign({}, base, { id: step.id + '_' + i,
-                        source: src, target: step.target }));
+                        source: src, target: target }));
       });
     }
   }

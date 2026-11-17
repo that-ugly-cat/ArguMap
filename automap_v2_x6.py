@@ -1011,6 +1011,16 @@ function renderLegend() {
 renderLegend();
 
 // --- History (undo / redo) ---
+// The loaders (to_x6_data in Python, rebuildFromMap here) name the edge of a
+// one-source step `<step id>_0`. Capture has to undo exactly that, or every
+// save-and-reload, every undo and every live refresh in a viewer renames the
+// edge by one more `_0` — and annotations hang from edge ids, so each rename
+// detached every comment on an arrow. New edges are born with the suffix for
+// the same reason: the id they have now is the id they come back with.
+function _stepIdOfEdge(edgeId) {
+  return edgeId.slice(-2) === '_0' ? edgeId.slice(0, -2) : edgeId;
+}
+
 function _captureState() {
   const nodes = [], steps = [];
   const joinerIds = new Set(
@@ -1027,7 +1037,7 @@ function _captureState() {
     if (joinerIds.has(src) || joinerIds.has(tgt)) return;
     const d = edge.getData() || {};
     steps.push({
-      id: edge.id, sources: [src], target: tgt, linked: false,
+      id: _stepIdOfEdge(edge.id), sources: [src], target: tgt, linked: false,
       relation: d.relation || 'supports', rule: d.rule || null,
       rule_reason: d.rule_reason || null,
       strength: d.strength !== undefined ? d.strength : 0.5,
@@ -1164,6 +1174,11 @@ const graph = new X6.Graph({
   // zoom section below, which replaces it.
   mousewheel:  { enabled: false },
   panning:     { enabled: true },
+  // X6 drops the click when the pointer moved at all between press and release
+  // (the default threshold is 0 mousemove events). A trackpad press almost
+  // always carries a pixel or two of drift, so on a Mac a "click" on a node
+  // often selected nothing — and with nothing selected, no annotation thread.
+  clickThreshold: 8,
   // Evaluated per interaction: on narrow screens nodes are locked so a
   // one-finger drag always pans instead of moving a node (read-only viewing).
   interacting: function () {
@@ -2021,7 +2036,7 @@ function handleConnectClick(node) {
     var _st = (connectSource.getData() || {}).type, _tt = (node.getData() || {}).type;
     var _rel = (_st === 'objection' || _tt === 'objection') ? 'attacks' : 'supports';
     graph.addEdge({
-      id: 'edge_' + Date.now(),
+      id: 'edge_' + Date.now() + '_0',
       source: { cell: connectSource.id }, target: { cell: node.id },
       router: EDGE_ROUTER, connector: EDGE_CONNECTOR,
       attrs:  edgeAttrs(_rel, 'unknown', 0.5),
@@ -2158,7 +2173,7 @@ function _guidedAddNode(type, content, notes, idx) {
 function _guidedAddEdge(srcId, tgtId, relation) {
   var rel = relation || 'supports';
   graph.addEdge({
-    id: 'edge_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    id: 'edge_' + Date.now() + '_' + Math.floor(Math.random() * 1000) + '_0',
     source: { cell: srcId }, target: { cell: tgtId },
     router: EDGE_ROUTER, connector: EDGE_CONNECTOR,
     attrs:  edgeAttrs(rel, 'unknown', 0.5),

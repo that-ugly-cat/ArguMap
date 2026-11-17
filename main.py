@@ -917,6 +917,8 @@ body.annot-open #annot-panel{display:flex}
 .annot-status{font-size:11px;color:#2d3748;margin-bottom:6px}
 .annot-linkbtn{background:none;border:none;color:#2980b9;font-size:11px;cursor:pointer;padding:0;margin-bottom:8px}
 .annot-hr{border:none;border-top:1px solid #dde1e7;margin:12px 0}
+.annot-viz{cursor:pointer}
+@media (max-width:820px){#annot-panel{left:0;right:0;width:auto;top:auto;bottom:0;max-height:46vh;border-left:none;border-top:1px solid #dde1e7;box-shadow:0 -4px 16px rgba(0,0,0,.14)}}
 """
 
 # Backend-aware annotation client. Uses the viewer globals `graph` and `setMode`.
@@ -972,9 +974,11 @@ _ANNOT_JS = r"""
   function leave(){layerOn=false;if(btn)btn.textContent=T.annot_enter;sel=null;stopPoll();
     document.querySelectorAll('.annot-viz').forEach(function(e){e.remove();});
     if(studentMode){document.body.classList.remove('annot-open');if(window.setMode)setMode('select');}
-    else{document.body.classList.remove('annot-on');var e=document.getElementById('annot-thread');if(e)e.remove();var sh=document.getElementById('annot-share');if(sh)sh.remove();}}
+    else{document.body.classList.remove('annot-on','annot-open');var e=document.getElementById('annot-thread');if(e)e.remove();var sh=document.getElementById('annot-share');if(sh)sh.remove();}}
   window.__annotToggle=function(){layerOn?leave():enter();};
-  window.__annotClosePanel=function(){leave();};
+  // On the owner's page the standalone panel is only the thread's fallback
+  // host: closing it drops the selection, it does not leave annotation.
+  window.__annotClosePanel=function(){if(ownerMode){sel=null;renderThread();}else leave();};
   window.__annotBack=function(){sel=null;renderThread();};
   window.__annotateClick=function(cell){if(!layerOn||!studentMode)return;selFromCell(cell);renderThread();};
   if(ownerMode){
@@ -985,7 +989,11 @@ _ANNOT_JS = r"""
       if(!layerOn)return;
       selFromCell(cell);
       try{ if(mode==='select' && selectedCell!==cell) sel=null; }catch(e){}
-      shareFold=null;renderThread();
+      shareFold=null;
+      // A right panel the owner folded away comes back for a selection made
+      // while annotating: the thread has nowhere else to go.
+      try{ if(sel && !_rightVisible && typeof toggleRightPanel==='function') toggleRightPanel(); }catch(e){}
+      renderThread();
       var ep=document.getElementById('edit-panel');if(ep&&sel)ep.scrollTop=0;
     };
     graph.on('node:click',function(a){ownerPick(a.node);});
@@ -1027,7 +1035,11 @@ _ANNOT_JS = r"""
   function labelsFor(tk,tid,kind){return store.annotations.filter(function(a){return a.target_kind===tk&&a.target_id===tid&&a.kind===kind;}).map(function(a){return (a.payload&&a.payload.label)||'';}).filter(Boolean);}
   // Compact SVG marker: distribution bar (1-5) + comment count + fallacy/bias chips.
   function makeMarker(d,fall,bias){
-    var g=svgEl('g',{'class':'annot-viz','pointer-events':'none'});
+    // The marker lives inside the cell's view and takes pointer events, so X6
+    // reports a click on it as a click on that node or edge. With
+    // pointer-events off the click fell through to the blank canvas, which
+    // deselects: clicking the comment icon was the one way not to see comments.
+    var g=svgEl('g',{'class':'annot-viz','pointer-events':'all'});
     var dist=d.plaus_dist||[0,0,0,0,0];var total=dist.reduce(function(a,b){return a+b;},0);var x=0;
     if(total>0){
       var mx=Math.max.apply(null,dist);
@@ -1043,6 +1055,9 @@ _ANNOT_JS = r"""
       g.appendChild(svgEl('rect',{x:cx,y:cy,width:w,height:15,rx:7,fill:ch.c,opacity:0.92}));
       var t=svgEl('text',{x:cx+5,y:cy+11,'font-size':9,fill:'#fff'});t.textContent=lb;g.appendChild(t);cx+=w+4;});
     if(chips.length>3){var mo=svgEl('text',{x:cx,y:cy+11,'font-size':9,fill:'#718096'});mo.textContent='+'+(chips.length-3);g.appendChild(mo);}
+    // Transparent hit area under the glyphs: text alone is a poor click target.
+    var hw=Math.max(x+(d.comments>0?34:0),cx,24),hh=(chips.length?cy+17:22);
+    g.insertBefore(svgEl('rect',{x:-4,y:-3,width:hw+8,height:hh+4,fill:'transparent'}),g.firstChild);
     return g;
   }
   function drawLayer(){
@@ -1068,10 +1083,6 @@ _ANNOT_JS = r"""
       h+='<div class="annot-lbl">'+esc(T.annot_plaus)+'</div><div class="annot-plaus">';
       for(var v=1;v<=5;v++){h+='<button class="annot-p'+((mp&&mp.payload&&mp.payload.value===v)?' on':'')+'" onclick="__annotPlaus('+v+')">'+v+'</button>';}
       h+='</div>';
-      h+='<textarea id="annot-comment" rows="2" placeholder="'+escA(T.annot_comment_ph)+'"></textarea>';
-      h+='<button class="annot-add" onclick="__annotAdd(\'comment\')">'+esc(T.annot_add)+'</button>';
-      h+='<div class="annot-flags"><input id="annot-fal" type="text" list="annot-fallacies-list" placeholder="'+escA(T.annot_fallacy)+'"><button class="annot-mini" onclick="__annotAdd(\'fallacy\')">'+esc(T.annot_add)+'</button></div>';
-      h+='<div class="annot-flags"><input id="annot-bias" type="text" list="annot-biases-list" placeholder="'+escA(T.annot_bias)+'"><button class="annot-mini" onclick="__annotAdd(\'bias\')">'+esc(T.annot_add)+'</button></div>';
     }else{h+='<div class="annot-note">'+esc(T.annot_closed_note)+'</div>';}
     var list=here.filter(function(a){return a.kind!=='plausibility';});
     if(!list.length){h+='<div class="annot-empty">'+esc(T.annot_none)+'</div>';}
@@ -1080,6 +1091,15 @@ _ANNOT_JS = r"""
       var txt=a.kind==='comment'?((a.payload&&a.payload.text)||''):((a.payload&&a.payload.label)||'');
       return '<div class="annot-item"><div class="annot-au">'+esc(a.author_name||'')+'</div><div class="annot-tx">'+esc(mark+txt)+'</div>'+((a.mine||ANNOT.canAdmin)?'<button class="annot-del" onclick="__annotDel('+a.id+')">'+esc(T.annot_delete)+'</button>':'')+'</div>';
     }).join('')+'</div>';}
+    // What others wrote comes before the fields to write more: under the form
+    // it sat below the fold on a laptop and out of the sheet on a phone.
+    if(store.open){
+      h+='<div class="annot-hint"></div>';
+      h+='<textarea id="annot-comment" rows="2" placeholder="'+escA(T.annot_comment_ph)+'"></textarea>';
+      h+='<button class="annot-add" onclick="__annotAdd(\'comment\')">'+esc(T.annot_add)+'</button>';
+      h+='<div class="annot-flags"><input id="annot-fal" type="text" list="annot-fallacies-list" placeholder="'+escA(T.annot_fallacy)+'"><button class="annot-mini" onclick="__annotAdd(\'fallacy\')">'+esc(T.annot_add)+'</button></div>';
+      h+='<div class="annot-flags"><input id="annot-bias" type="text" list="annot-biases-list" placeholder="'+escA(T.annot_bias)+'"><button class="annot-mini" onclick="__annotAdd(\'bias\')">'+esc(T.annot_add)+'</button></div>';
+    }
     return h;
   }
   function catalogHtml(){var h='';[['fallacies',T.annot_fallacy],['biases',T.annot_bias]].forEach(function(p){h+='<div class="annot-lbl">'+esc(p[1])+'</div>';var root=(typeof SCHEMES_DATA!=='undefined'?SCHEMES_DATA:{})[p[0]]||{};Object.keys(root).forEach(function(fk){((root[fk]||{})[p[0]]||[]).forEach(function(it){if(it&&it.name){var d=it.definition||it.description||it.desc||it.gloss||'';h+='<div class="annot-cat-item"><b>'+esc(it.name)+'</b>'+(d?'<br><span style="color:#718096">'+esc(d)+'</span>':'')+'</div>';}});});});return h;}
@@ -1090,7 +1110,17 @@ _ANNOT_JS = r"""
   window.__annotShareFold=function(){var sh=document.getElementById('annot-share');if(!sh)return;shareFold=!sh.classList.contains('min');syncShare();};
   function renderShare(){var ep=document.getElementById('edit-panel');if(!ep)return;var sh=document.getElementById('annot-share');if(!layerOn){if(sh)sh.remove();return;}if(!sh){sh=document.createElement('div');sh.id='annot-share';ep.insertBefore(sh,ep.firstChild);}var h='<div class="annot-share-head" onclick="__annotShareFold()"><div class="annot-lbl">'+esc(T.annot_sharing)+'</div><button class="annot-share-tg" type="button"></button></div><div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div><div class="annot-share-body"><button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;h+='<input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}if(ANNOT.joinCode){var jc=ANNOT.joinCode;h+='<div class="annot-lbl">'+esc(T.annot_join_code)+'</div><div class="annot-code'+(store.open?'':' off')+'">'+esc(jc.slice(0,3)+' '+jc.slice(3))+'</div><img class="annot-qr" src="/qr/'+jc+'.svg" alt=""><div class="annot-joinurl">'+esc(T.annot_join_hint)+' '+esc(location.host+'/join')+'</div>'+(store.open?'':'<div class="annot-joinurl">'+esc(T.annot_join_off)+'</div>')+'<button class="annot-mini" style="width:100%;margin-bottom:8px" onclick="__annotShowCode()">'+esc(T.annot_show_code)+'</button>';}h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button>';h+='<button class="annot-mini" style="width:100%;margin-top:6px" onclick="__annotDetached()">'+esc(T.annot_detached)+'</button>';h+='<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#4a5568;cursor:pointer"><input type="checkbox" '+(ANNOT.anon?'checked':'')+' onclick="__annotAnon(this.checked)" style="width:auto;margin:0"> '+esc(T.annot_anon)+'</label></div>';sh.innerHTML=h;syncShare();}
   function renderThread(){
-    if(ownerMode){var el=ownerThreadEl();if(!el)return;if(!sel){el.style.display='none';el.innerHTML='';}else{el.style.display='';el.innerHTML=threadHtml();}syncShare();}
+    if(ownerMode){var el=ownerThreadEl();if(!el)return;
+      // The edit panel is hidden in guided mode and on narrow screens (CSS).
+      // There the thread goes to the standalone panel students use.
+      var ep=document.getElementById('edit-panel');
+      var hidden=!ep||getComputedStyle(ep).display==='none';
+      if(hidden){el.style.display='none';el.innerHTML='';
+        document.body.classList.toggle('annot-open',!!sel);
+        if(body)body.innerHTML=sel?threadHtml():'';}
+      else{document.body.classList.remove('annot-open');
+        if(!sel){el.style.display='none';el.innerHTML='';}else{el.style.display='';el.innerHTML=threadHtml();}}
+      syncShare();}
     else{if(!body)return;body.innerHTML=sel?('<button class="annot-linkbtn" onclick="__annotBack()">'+esc(T.annot_back)+'</button>'+threadHtml()):studentHome();}
   }
   async function post(kind,payload){if(!sel)return;await api(BASE_MAPPE+ANNOT.mapId+'/annotations',{method:'POST',body:JSON.stringify({target_kind:sel.kind,target_id:sel.id,kind:kind,payload:payload})});poll();}

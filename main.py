@@ -876,8 +876,13 @@ body.annot-open #annot-panel{display:flex}
 #annot-head span{font-size:13px;font-weight:700;color:#1a202c}
 #annot-x{background:none;border:none;font-size:14px;color:#718096;cursor:pointer}
 #annot-body{padding:14px;overflow-y:auto;flex:1;font-size:12px;color:#2d3748}
-#annot-thread{border-top:2px solid #dde1e7;margin-top:12px;padding-top:10px;font-size:12px;color:#2d3748}
+#annot-thread{border-bottom:2px solid #dde1e7;margin-bottom:12px;padding-bottom:10px;font-size:12px;color:#2d3748}
 #annot-share{background:#ebf5fb;border:1px solid #bee3f8;border-radius:6px;padding:10px;margin-bottom:12px;font-size:12px}
+#annot-share.min .annot-share-body{display:none}
+#annot-share.min .annot-status{margin-bottom:0}
+.annot-share-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.annot-share-head .annot-lbl{margin-top:0}
+.annot-share-tg{background:none;border:none;color:#718096;font-size:11px;cursor:pointer;padding:0 2px}
 .annot-cat-item{font-size:11px;line-height:1.4;padding:5px 0;border-top:1px solid #edf2f7}
 .annot-code{font-size:26px;font-weight:800;letter-spacing:.12em;color:#1a202c;text-align:center;background:#fff;border:1px solid #bee3f8;border-radius:6px;padding:8px 0;margin-bottom:6px}
 .annot-code.off{color:#a0aec0}
@@ -924,6 +929,10 @@ _ANNOT_JS = r"""
   function escA(s){return esc(s).replace(/"/g,'&quot;');}
   var store={open:!!ANNOT.canWrite,annotations:[],aggregates:{}};
   var sel=null, timer=null, layerOn=false, _lastMapUp=null, _saveTimer=null;
+  // Owner sharing box: null = follow the selection (folded while a cell is
+  // selected, so the thread is not pushed below the fold), true/false = the
+  // owner folded or unfolded it by hand.
+  var shareFold=null;
   var ownerMode = ANNOT.canAdmin && !ANNOT.auto;   // owner/teacher on /map/{id}: edit + annotate coexist
   var studentMode = !ownerMode;                    // /annotate/{token}: annotate-only, structure locked
   var panel=document.getElementById('annot-panel');
@@ -969,9 +978,19 @@ _ANNOT_JS = r"""
   window.__annotBack=function(){sel=null;renderThread();};
   window.__annotateClick=function(cell){if(!layerOn||!studentMode)return;selFromCell(cell);renderThread();};
   if(ownerMode){
-    graph.on('node:click',function(a){if(!layerOn)return;selFromCell(a.node);renderThread();});
-    graph.on('edge:click',function(a){if(!layerOn)return;selFromCell(a.edge);renderThread();});
-    graph.on('blank:click',function(){sel=null;renderThread();});
+    // The viewer's own click handler runs first (it was registered first). A
+    // second click on the selected cell deselects it there; follow it, or the
+    // thread stays up for a cell the panel no longer shows.
+    var ownerPick=function(cell){
+      if(!layerOn)return;
+      selFromCell(cell);
+      try{ if(mode==='select' && selectedCell!==cell) sel=null; }catch(e){}
+      shareFold=null;renderThread();
+      var ep=document.getElementById('edit-panel');if(ep&&sel)ep.scrollTop=0;
+    };
+    graph.on('node:click',function(a){ownerPick(a.node);});
+    graph.on('edge:click',function(a){ownerPick(a.edge);});
+    graph.on('blank:click',function(){sel=null;shareFold=null;renderThread();});
   }
   if(ownerMode && ANNOT.canEdit && typeof graph!=='undefined'){
     ['node:added','node:removed','node:moved','edge:added','edge:removed','node:change:data','edge:change:data','cell:change:position'].forEach(function(ev){
@@ -1066,10 +1085,12 @@ _ANNOT_JS = r"""
   function catalogHtml(){var h='';[['fallacies',T.annot_fallacy],['biases',T.annot_bias]].forEach(function(p){h+='<div class="annot-lbl">'+esc(p[1])+'</div>';var root=(typeof SCHEMES_DATA!=='undefined'?SCHEMES_DATA:{})[p[0]]||{};Object.keys(root).forEach(function(fk){((root[fk]||{})[p[0]]||[]).forEach(function(it){if(it&&it.name){var d=it.definition||it.description||it.desc||it.gloss||'';h+='<div class="annot-cat-item"><b>'+esc(it.name)+'</b>'+(d?'<br><span style="color:#718096">'+esc(d)+'</span>':'')+'</div>';}});});});return h;}
   window.__annotCatalog=function(){var v=document.getElementById('annot-cat-view');if(!v)return;v.innerHTML=v.innerHTML?'':catalogHtml();};
   function studentHome(){return '<div class="annot-empty">'+esc(T.annot_select_hint)+'</div><button class="annot-mini" style="width:100%;margin-top:10px" onclick="__annotCatalog()">📖 '+esc(T.annot_fallacy)+' / '+esc(T.annot_bias)+'</button><div id="annot-cat-view"></div>';}
-  function ownerThreadEl(){var e=document.getElementById('annot-thread');if(!e){var ep=document.getElementById('edit-panel');if(!ep)return null;e=document.createElement('div');e.id='annot-thread';ep.appendChild(e);}return e;}
-  function renderShare(){var ep=document.getElementById('edit-panel');if(!ep)return;var sh=document.getElementById('annot-share');if(!layerOn){if(sh)sh.remove();return;}if(!sh){sh=document.createElement('div');sh.id='annot-share';ep.insertBefore(sh,ep.firstChild);}var h='<div class="annot-lbl">'+esc(T.annot_sharing)+'</div><div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div><button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;h+='<input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}if(ANNOT.joinCode){var jc=ANNOT.joinCode;h+='<div class="annot-lbl">'+esc(T.annot_join_code)+'</div><div class="annot-code'+(store.open?'':' off')+'">'+esc(jc.slice(0,3)+' '+jc.slice(3))+'</div><img class="annot-qr" src="/qr/'+jc+'.svg" alt=""><div class="annot-joinurl">'+esc(T.annot_join_hint)+' '+esc(location.host+'/join')+'</div>'+(store.open?'':'<div class="annot-joinurl">'+esc(T.annot_join_off)+'</div>')+'<button class="annot-mini" style="width:100%;margin-bottom:8px" onclick="__annotShowCode()">'+esc(T.annot_show_code)+'</button>';}h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button>';h+='<button class="annot-mini" style="width:100%;margin-top:6px" onclick="__annotDetached()">'+esc(T.annot_detached)+'</button>';h+='<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#4a5568;cursor:pointer"><input type="checkbox" '+(ANNOT.anon?'checked':'')+' onclick="__annotAnon(this.checked)" style="width:auto;margin:0"> '+esc(T.annot_anon)+'</label>';sh.innerHTML=h;}
+  function ownerThreadEl(){var e=document.getElementById('annot-thread');if(!e){var ep=document.getElementById('edit-panel');if(!ep)return null;e=document.createElement('div');e.id='annot-thread';var sh=document.getElementById('annot-share');ep.insertBefore(e,sh?sh.nextSibling:ep.firstChild);}return e;}
+  function syncShare(){var sh=document.getElementById('annot-share');if(!sh)return;var min=(shareFold===null)?!!sel:shareFold;sh.classList.toggle('min',min);var tg=sh.querySelector('.annot-share-tg');if(tg)tg.textContent=min?'▸':'▾';}
+  window.__annotShareFold=function(){var sh=document.getElementById('annot-share');if(!sh)return;shareFold=!sh.classList.contains('min');syncShare();};
+  function renderShare(){var ep=document.getElementById('edit-panel');if(!ep)return;var sh=document.getElementById('annot-share');if(!layerOn){if(sh)sh.remove();return;}if(!sh){sh=document.createElement('div');sh.id='annot-share';ep.insertBefore(sh,ep.firstChild);}var h='<div class="annot-share-head" onclick="__annotShareFold()"><div class="annot-lbl">'+esc(T.annot_sharing)+'</div><button class="annot-share-tg" type="button"></button></div><div class="annot-status">'+esc(store.open?T.annot_status_open:T.annot_status_closed)+'</div><div class="annot-share-body"><button class="annot-add" onclick="__annotOpenClose()">'+esc(store.open?T.annot_close:T.annot_open)+'</button>';if(ANNOT.token){var link=location.origin+'/annotate/'+ANNOT.token;h+='<input class="annot-link" readonly value="'+escA(link)+'"><button class="annot-mini" onclick="__annotCopy(this,\''+link+'\')">'+esc(T.annot_copy)+'</button>';}if(ANNOT.joinCode){var jc=ANNOT.joinCode;h+='<div class="annot-lbl">'+esc(T.annot_join_code)+'</div><div class="annot-code'+(store.open?'':' off')+'">'+esc(jc.slice(0,3)+' '+jc.slice(3))+'</div><img class="annot-qr" src="/qr/'+jc+'.svg" alt=""><div class="annot-joinurl">'+esc(T.annot_join_hint)+' '+esc(location.host+'/join')+'</div>'+(store.open?'':'<div class="annot-joinurl">'+esc(T.annot_join_off)+'</div>')+'<button class="annot-mini" style="width:100%;margin-bottom:8px" onclick="__annotShowCode()">'+esc(T.annot_show_code)+'</button>';}h+='<button class="annot-mini annot-danger" onclick="__annotNewSession()">'+esc(T.annot_new_session)+'</button>';h+='<button class="annot-mini" style="width:100%;margin-top:6px" onclick="__annotDetached()">'+esc(T.annot_detached)+'</button>';h+='<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#4a5568;cursor:pointer"><input type="checkbox" '+(ANNOT.anon?'checked':'')+' onclick="__annotAnon(this.checked)" style="width:auto;margin:0"> '+esc(T.annot_anon)+'</label></div>';sh.innerHTML=h;syncShare();}
   function renderThread(){
-    if(ownerMode){var el=ownerThreadEl();if(!el)return;if(!sel){el.style.display='none';el.innerHTML='';}else{el.style.display='';el.innerHTML=threadHtml();}}
+    if(ownerMode){var el=ownerThreadEl();if(!el)return;if(!sel){el.style.display='none';el.innerHTML='';}else{el.style.display='';el.innerHTML=threadHtml();}syncShare();}
     else{if(!body)return;body.innerHTML=sel?('<button class="annot-linkbtn" onclick="__annotBack()">'+esc(T.annot_back)+'</button>'+threadHtml()):studentHome();}
   }
   async function post(kind,payload){if(!sel)return;await api(BASE_MAPPE+ANNOT.mapId+'/annotations',{method:'POST',body:JSON.stringify({target_kind:sel.kind,target_id:sel.id,kind:kind,payload:payload})});poll();}
